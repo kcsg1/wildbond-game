@@ -1,0 +1,8 @@
+# docs/architecture.md §8.1 Tile / §8.2 청크 collision 레이어의 원천.
+id,tileset,collision,biome,temperature_offset,walk_speed_mult,minable,item_drop
+int,string,enum:TileCollision,enum:Biome,float(-40..40),float(0.1..2.0),bool,ref:Item?
+1,tiles/grass,none,grassland,0.0,1.0,false,
+2,tiles/dirt,none,grassland,0.0,1.0,false,
+3,tiles/water,water,coast,-4.0,0.4,false,
+4,tiles/cliff,cliff,grassland,0.0,1.0,true,5
+5,tiles/sand,none,desert,6.0,0.85,false,

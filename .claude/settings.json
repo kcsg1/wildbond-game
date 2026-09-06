@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File ./.claude/hooks/stop-harness.ps1",
+            "timeout": 600
+          }
+        ]
+      }
+    ]
+  }
+}

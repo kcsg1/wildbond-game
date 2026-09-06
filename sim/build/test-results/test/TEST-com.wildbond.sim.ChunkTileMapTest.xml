@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.wildbond.sim.ChunkTileMapTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-09-04T08:23:42.876Z" hostname="DESKTOP-RQGQ0JB" time="0.196">
+  <properties/>
+  <testcase name="tileCoordinatesResolveToTheirOwningChunk()" classname="com.wildbond.sim.ChunkTileMapTest" time="0.147"/>
+  <testcase name="loaderIsCalledOncePerChunkThenCached()" classname="com.wildbond.sim.ChunkTileMapTest" time="0.026"/>
+  <testcase name="pondTileReadsAsWater()" classname="com.wildbond.sim.ChunkTileMapTest" time="0.022"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.wildbond.data.GameDataTest" tests="7" skipped="0" failures="0" errors="0" timestamp="2026-09-04T01:53:44.254Z" hostname="DESKTOP-RQGQ0JB" time="0.017">
+  <properties/>
+  <testcase name="sphereTiersFollowCaptureFormula()" classname="com.wildbond.data.GameDataTest" time="0.001"/>
+  <testcase name="loadsSampleRowCounts()" classname="com.wildbond.data.GameDataTest" time="0.004"/>
+  <testcase name="emptyCellsBecomeNullForNullableColumns()" classname="com.wildbond.data.GameDataTest" time="0.001"/>
+  <testcase name="parsesScalarsAndEnums()" classname="com.wildbond.data.GameDataTest" time="0.002"/>
+  <testcase name="referencesPointAtExistingRows()" classname="com.wildbond.data.GameDataTest" time="0.001"/>
+  <testcase name="unknownIdFails()" classname="com.wildbond.data.GameDataTest" time="0.002"/>
+  <testcase name="parsesArraysWithFixedLength()" classname="com.wildbond.data.GameDataTest" time="0.006"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

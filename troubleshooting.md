@@ -1,0 +1,193 @@
+# troubleshooting.md — 실패 기록과 재발 방지
+
+**작업을 시작하기 전에 이 파일을 읽는다.** 같은 종류의 작업에 해당하는 항목이 있으면 "재발 방지"를 먼저 적용한다.
+형식은 `CLAUDE.md` "작업 절차" 참고. 번호 `T-nnn`은 증가만 하고 재사용하지 않는다. 가장 최근 항목이 **위**에 온다.
+
+## 태그 색인
+
+| 태그 | 항목 |
+|---|---|
+| gradle | T-001, T-002, T-004, T-005 |
+| archunit | — |
+| sim | — |
+| libgdx | T-005, T-006, T-007 |
+| data | T-004 |
+| tooling | T-001, T-002, T-003, T-004, T-005, T-006, T-007 |
+
+---
+
+## [T-007] 이 PC 에서 GUI 앱을 화면 캡처로 검증하려면 PrintWindow 를 써야 한다 (세션이 잠겨 있을 수 있다)
+- 날짜 / 단계: 2026-09-04 / 단계 5
+- 상황: `:client-desktop:run` 으로 띄운 LibGDX 창이 실제로 제대로 그려지는지 화면 캡처로 확인하려 했다.
+- 증상:
+  - `Graphics.CopyFromScreen(...)` (일반적인 "화면 전체를 찍는" 방식) 으로 캡처하면 게임 창이 아니라
+    **Windows 잠금 화면**이 찍혔다 — 이 세션의 대화형 데스크톱이 잠겨 있었다(원격/무인 상태로 추정).
+  - `System.Windows.Forms.SendKeys::SendWait` 로 WASD 를 흉내 내려 하면 `Access is denied` 예외 —
+    잠긴 세션에는 입력 주입도 막혀 있다.
+- 원인: 세션이 잠기면 물리 프레임버퍼에는 잠금 화면만 표시되고(CopyFromScreen 이 그걸 그대로 찍는다),
+  OS 가 잠긴 세션으로의 입력 주입도 차단한다. 반면 DWM 은 잠긴 상태에서도 각 창의 백버퍼는 계속
+  합성하고 있어서, 특정 창을 **직접** 겨냥해 픽셀을 요청하는 방식은 여전히 통한다.
+- 해결: `user32.dll` 의 `PrintWindow(hwnd, hdc, PW_RENDERFULLCONTENT=2)` 로 그 창의 핸들을 직접 지정해
+  캡처했다 — OpenGL/LWJGL 창인데도 정상적으로 실제 렌더링 내용이 나왔다(§부록: `GetClientRect` 로 크기를
+  구해 그 크기의 비트맵을 만들고, `Graphics.GetHdc()`/`ReleaseHdc()` 로 얻은 HDC 를 넘긴다).
+- **재발(같은 날, 화면 잠금이 풀린 뒤)**: 사람이 실제로 PC 앞에 앉아 화면 잠금이 풀린 뒤 다시 키 입력
+  자동화를 시도했다 — `SendKeys::SendWait`(반복 탭), `keybd_event`(D 키 2초 유지), `SetForegroundWindow`
+  단독, `AttachThreadInput` 으로 감싼 `SetForegroundWindow` 까지 전부 시도. 매번 `GetForegroundWindow()`
+  로 확인해 보면 실제 포그라운드는 계속 **다른 창**(도구가 실행 중인 터미널 쪽으로 추정)이었다 — 즉
+  Wildbond 창은 한 번도 실제로 키 입력을 받지 못했다. `keybd_event` 를 길게 유지하는 동안 Wildbond 창이
+  까닭 모르게 최소화되기도 했다(포커스 도난 방지의 부작용으로 추정). 잠금 여부와 무관하게, **원격
+  자동화 세션은 Windows 의 포그라운드 잠금(포커스 하이재킹 방지) 정책 때문에 사용자가 실제로 쓰고 있는
+  세션에서 다른 창으로 키보드 포커스를 강제로 옮길 수 없다** — 이건 우회 대상이 아니라 의도된 보안 기능.
+- 재발 방지: **이 머신에서 GUI 앱을 스크린샷으로 검증할 때는 처음부터 `PrintWindow(hwnd, ..., 2)`를
+  쓴다** — `CopyFromScreen` 을 먼저 시도해서 시간을 버리지 않는다. 창 핸들은
+  `Get-Process | Where-Object { $_.MainWindowTitle -eq "..." }` 로 찾는다(제목이 뜰 때까지 폴링 필요 —
+  프로세스는 바로 뜨지만 GLFW 창은 몇 초 뒤에 생긴다). **키 입력(WASD 등) 상호작용 검증은 이 환경에서는
+  화면 잠금 여부와 무관하게 시도하지 않는다** — `SendKeys`/`keybd_event`/`SetForegroundWindow`/
+  `AttachThreadInput` 모두 확인해 봤지만 안 되고, 실패 자체가 창이 최소화되는 등 예측 못 할 부작용을
+  낳을 수 있다. 대신 코드 리뷰·유닛 테스트·(가능하면) 코드 안에 임시 진단 출력을 넣어 콘솔로 값을
+  확인하는 방식으로 대체한다. 사람이 실제로 조작해 봐야 하는 부분은 "확인 못 함"이라고 솔직히 보고하고,
+  30초짜리 최종 확인을 사람에게 요청한다.
+- 태그: tooling, libgdx
+
+---
+
+## [T-006] yDown 카메라에 기본 BitmapFont 를 쓰면 글자가 뒤집혀 나온다
+- 날짜 / 단계: 2026-09-04 / 단계 5
+- 상황: DebugOverlay(F3) 텍스트를 그렸는데, `PlayScreen` 의 UI 카메라를 `setToOrtho(true, ...)`
+  (yDown — 타일 그리드와 좌표계를 맞추려고, GameCamera.java 참고) 로 만들어 놨다.
+- 증상: 실제 창을 캡처해 보니(T-007 참고) 글자가 좌우·상하로 뒤집혀 알아볼 수 없게 나왔다. FPS·틱 수치
+  자체는 맞았다(게임 로직은 정상) — 순전히 폰트 렌더링 방향 문제였다.
+- 원인: `new BitmapFont()`(기본 생성자)는 y 가 위로 증가하는 좌표계를 가정한다. yDown 프로젝션 행렬로
+  그리면 그 가정이 뒤집혀 글리프가 위아래로 뒤집힌 채 그려진다.
+- 해결: `new BitmapFont(true)` — LibGDX 가 정확히 이 상황을 위해 제공하는 `flip` 생성자 인자를 썼다.
+  (`DebugOverlay.java`)
+- 재발 방지: **yDown 카메라/프로젝션으로 텍스트를 그릴 땐 `BitmapFont` 를 항상 `flip=true` 로 만든다.**
+  일반 스프라이트(타일·엔티티)는 이 문제가 없다 — SpriteBatch.draw 의 사각형 좌표 자체가 카메라 방향을
+  그대로 따라가기 때문에 별도 처리가 필요 없다. 폰트만 내부적으로 방향을 가정하고 있어서 예외다.
+- 태그: libgdx
+
+---
+
+## [T-005] lwjgl3 백엔드도 gdx-platform(gdx64.dll)이 없으면 창이 안 뜬다
+- 날짜 / 단계: 2026-09-04 / 단계 5
+- 상황: `.\gradlew.bat :client-desktop:run` 첫 실행. `gdx-backend-lwjgl3` 의 POM 이 org.lwjgl 계열
+  네이티브만 요구하는 것으로 보여서(§5.1 조사), `gdx-platform`(구식 gdx.dll/gdx64.dll)은 lwjgl3 백엔드엔
+  필요 없다고 판단하고 뺐다.
+- 증상:
+  ```
+  Exception in thread "main" com.badlogic.gdx.utils.SharedLibraryLoadRuntimeException:
+  Couldn't load shared library 'gdx64.dll' for target: Windows 11, x86, 64-bit
+    at ...Lwjgl3Application.initializeGlfw(Lwjgl3Application.java:83)
+  Caused by: ... Unable to read file for extraction: gdx64.dll
+  ```
+- 원인: `Lwjgl3Application.initializeGlfw()` 가 GLFW 초기화 전에 `GdxNativesLoader.load()` 를 호출하는데,
+  이건 `gdx-backend-lwjgl3` 의 POM 이 아니라 `gdx-platform` 아티팩트가 제공하는 `gdx64.dll` 을 classpath
+  리소스로 찾는다. POM 만 보고 런타임 로더 경로까지 판단한 것이 오판이었다.
+- 해결: `gdx-platform:1.13.5:natives-desktop` 을 추가했다. windows 전용 classifier 는 없다 — 이 아티팩트는
+  win(gdx.dll/gdx64.dll)·mac(.dylib)·linux(여러 arch .so)를 한 jar(~1.1MB)에 묶어서만 배포한다.
+  §5.6(윈도우 x64 네이티브만) 원칙에 대한 문서화된 예외로 처리했다 — 더 잘게 쪼갠 아티팩트가 upstream에
+  없고, 크기 영향이 무시할 만하다(zstd-jni/LWJGL3 는 실제로 수십MB 차이가 나서 이 예외를 적용하지 않았다).
+- 재발 방지: **libgdx 데스크톱 실행이 네이티브 로드 예외로 실패하면, 먼저 `gdx-platform:natives-desktop`
+  이 클래스패스에 있는지 확인한다.** POM의 선언된 의존성만으로 "이 백엔드엔 이 아티팩트가 필요 없다"고
+  판단하지 않는다 — 리플렉션/클래스패스 리소스로 찾는 네이티브 로더는 POM에 안 나타날 수 있다. 실제로
+  `:client-desktop:run` 을 돌려서 창이 뜨는지까지 확인해야 "완료"다(컴파일 통과만으로는 부족).
+- 태그: gradle, tooling, libgdx
+
+---
+
+## [T-004] JDK 25 가 zstd-jni 네이티브 로드에 "restricted method" 경고를 낸다
+- 날짜 / 단계: 2026-09-04 / 단계 4
+- 상황: `.\gradlew.bat :tools:chunk-compiler:compileChunks` 로 처음 zstd 압축 코드(`ChunkWriter`)를 실행
+- 증상:
+  ```
+  WARNING: A restricted method in java.lang.System has been called
+  WARNING: java.lang.System::loadLibrary has been called by com.github.luben.zstd.util.Native$1 ...
+  WARNING: Use --enable-native-access=ALL-UNNAMED to avoid a warning for callers in this module
+  WARNING: Restricted methods will be blocked in a future release unless native access is enabled
+  ```
+  `:data:test`/`:sim:test` 도 같은 코드 경로(zstd)를 타지만, `testLogging { events("failed") }` 때문에
+  통과한 테스트의 표준출력/에러는 하네스 로그에 안 보여서 그쪽에서는 경고가 눈에 띄지 않았다.
+- 원인: JDK 25 부터 JNI 네이티브 로드가 "제한된 메서드"로 분류된다(JEP 472). 경고일 뿐 지금은 실패하지
+  않지만, 메시지가 "미래 릴리스에서 막힌다"고 명시한다 — JDK 패치 버전만 올라가도 빌드가 깨질 수 있다.
+- 해결: 루트 `build.gradle.kts` 의 `tasks.withType<Test>` 공통 설정과
+  `tools/chunk-compiler/build.gradle.kts` 의 `compileChunks` JavaExec 에
+  `jvmArgs("--enable-native-access=ALL-UNNAMED")` 를 추가했다.
+- 재발 방지: **네이티브 라이브러리(JNI/JNA)를 새로 추가하면, 그 코드를 실행하는 모든 Test/JavaExec
+  태스크에 `--enable-native-access=ALL-UNNAMED` 를 바로 추가한다** — 경고가 하네스 로그에 안 보인다고
+  없는 게 아니다. 단계 5 LWJGL3(client-desktop) 도 네이티브를 로드하므로 `:client-desktop:run` 에도
+  같은 처리가 필요할 것이다.
+- 태그: tooling, gradle, data
+
+---
+
+## [T-003] 새로 작성한 Java 때문에 하네스 전체 모드가 spotlessCheck 에서 실패
+- 날짜 / 단계: 2026-09-04 / 단계 2
+- 상황: 원격 세션에서 작성한 `tools/datagen` 8클래스를 넣고 PC 에서 `.\harness.cmd` 실행
+- 증상: `spotlessCheck` 실패 → `build` 도 실패(`check` 가 spotlessCheck 를 포함).
+  `Run 'gradlew.bat :tools:datagen:spotlessApply' to fix these violations.`
+  컴파일·테스트는 정상인데 포맷 차이만으로 전체 검증이 멈췄다. 리포트의 테스트 수(7)는 직전 실행 값이었다.
+- 원인: 손으로 쓴 코드는 google-java-format 출력과 정확히 같을 수 없다. 그런데 하네스 전체 모드가
+  `spotlessCheck`(검사)를 쓰고 있어서, "포맷은 논쟁하지 않는다"는 CLAUDE.md 원칙과 어긋났다.
+- 해결: 하네스 기본 동작을 **`spotlessApply`(적용)** 로 바꿨다. 검사만 하려면 `-CheckFormat`.
+  실패 시 리포트에 "테스트 수는 직전 실행 결과일 수 있다"는 주의 문구도 추가했다.
+- 재발 방지: 포맷을 손으로 맞추려 하지 않는다. 새 소스를 추가한 뒤에는 하네스를 그냥 돌리면 된다.
+  원칙(포맷은 논쟁하지 않음)과 도구 동작(검사)이 어긋나면 **도구를 원칙에 맞춘다.**
+- 태그: tooling, gradle
+
+---
+
+## [T-002] Gradle 래퍼: 배포판 다운로드는 되는데 압축 해제 시 zip 이 없다
+- 날짜 / 단계: 2026-09-04 / 단계 1
+- 상황: 개발 PC 에서 `.\gradlew.bat spotlessApply` 첫 실행 (Gradle 9.2.0 배포판 최초 다운로드)
+- 증상:
+  ```
+  Downloading https://services.gradle.org/distributions/gradle-9.2.0-bin.zip
+  ...100%
+  Could not unzip ...\gradle-9.2.0-bin\<hash>\gradle-9.2.0-bin.zip to ...
+  Exception in thread "main" java.nio.file.NoSuchFileException: ...gradle-9.2.0-bin.zip
+  ```
+  다운로드는 100% 완료되었으나 곧바로 그 zip 을 열 때 파일이 존재하지 않는다.
+- 원인: `%USERPROFILE%\.gradle` 트리가 백신·보안 소프트웨어의 감시 대상이어서, 내려받은 배포판 zip 이
+  다운로드 직후 격리되어 사라졌다. 바탕화면 트리는 예외 처리되어 있다.
+- 해결: 프로젝트를 `C:\Users\user\Desktop\develop\wildbond-game` 으로 옮기고,
+  Gradle 홈을 `C:\Users\user\Desktop\develop\.gradle-home` 으로 지정했다
+  (환경 변수 `GRADLE_USER_HOME`, 그리고 `harness.ps1` 에 폴백 설정). 두 경로 모두 백신 예외 트리다.
+  → 2026-09-04 새 경로에서 배포판 다운로드·압축 해제 성공, 하네스 통과로 해결 확인.
+- 재발 방지: **빌드 산출물·의존성 캐시를 백신 예외 경로 밖에 두지 않는다.** `GRADLE_USER_HOME` 을
+  `%USERPROFILE%\.gradle` 로 되돌리지 않는다(CLAUDE.md "환경" 참고).
+  새 도구 배포판을 처음 받을 때 실패하면 먼저 **파일이 실제로 남아 있는지** 확인한다 —
+  래퍼가 자동 다운로드에 실패하면 zip 을 직접 내려받아 `<GRADLE_USER_HOME>\wrapper\dists\...` 에 두면 그대로 쓴다.
+- 태그: gradle, tooling
+
+---
+
+## [T-001] 클라우드(원격) 세션에서는 Gradle 빌드를 검증할 수 없다
+- 날짜 / 단계: 2026-09-04 / 단계 1
+- 상황: 원격 Claude 세션(클라우드 컨테이너)에서 Gradle 뼈대를 만들고 하네스로 검증하려 했다.
+- 증상: `services.gradle.org`, `repo.maven.apache.org`, `plugins.gradle.org` 모두 CONNECT 403
+  (조직 egress 정책). `gradle wrapper --gradle-version 9.1.0` 은
+  "Test of distribution url ... failed" 로 실패. PowerShell 도 없어 `harness.cmd` 자체를 돌릴 수 없다.
+- 원인: 클라우드 컨테이너의 네트워크 정책 + OS 차이(Linux). 개발 PC 환경이 아니다.
+- 해결: 컨테이너에서는 (1) 네트워크가 필요 없는 검증만 한다 — `gradle projects --offline`,
+  `gradle compileJava --offline -Pwildbond.javaVersion=21`, `javac` 구문 확인.
+  (2) 래퍼는 컨테이너에 설치된 Gradle 로 버전 지정 없이 생성한 뒤 `distributionUrl` 만 손으로 고친다.
+  (3) 실제 하네스 통과 여부는 개발 PC(Windows, JDK 25)에서 확인한다.
+- 재발 방지: **원격 세션에서 작업할 때는 의존성 해석·하네스 실행을 스스로 마쳤다고 보고하지 않는다.**
+  파일 작성 + 오프라인 검증까지만 하고, `plan.md` 검증 줄에 "PC 하네스 실행 대기"로 남긴 뒤 사람에게 실행을 요청한다.
+  버전 핀은 추측일 수 있으므로 `libs.versions.toml` 상단 주석대로 해석 실패 시 최신으로 올린다.
+- 태그: tooling, gradle
+
+---
+
+(아래는 템플릿)
+
+```
+## [T-nnn] 한 줄 증상
+- 날짜 / 단계:
+- 상황:
+- 증상:
+- 원인:
+- 해결:
+- 재발 방지:
+- 태그:
+```

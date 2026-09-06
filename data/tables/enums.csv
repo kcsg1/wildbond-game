@@ -1,0 +1,10 @@
+# 열거형 정의. 이 파일이 enum 의 단일 원천이며, 다른 표의 타입 행에서 enum:<name> 으로 참조한다.
+# name,values(| 구분)
+name,values
+Element,none|fire|water|grass|electric|ice|ground|dark|dragon
+Biome,grassland|forest|snow|desert|volcano|coast
+Temperament,timid|neutral|aggressive
+HitShape,circle|cone|rect|projectile
+ItemCategory,sphere|material|consumable|weapon|armor
+TileCollision,none|solid|water|cliff
+WorkType,kindling|watering|planting|electricity|handiwork|gathering|lumbering|mining|cooling|transporting

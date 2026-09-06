@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.wildbond.sim.systems.DamageFormulaTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-09-04T08:23:43.244Z" hostname="DESKTOP-RQGQ0JB" time="0.001">
+  <properties/>
+  <testcase name="criticalAppliesConfiguredMultiplier()" classname="com.wildbond.sim.systems.DamageFormulaTest" time="0.0"/>
+  <testcase name="elementMultiplierAppliesDoubleAndHalf()" classname="com.wildbond.sim.systems.DamageFormulaTest" time="0.001"/>
+  <testcase name="defense200HalvesDamage()" classname="com.wildbond.sim.systems.DamageFormulaTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -1,0 +1,9 @@
+# docs/architecture.md §8.1 Item. sphere_tier/sphere_multiplier 는 포획구에만 있다(§3.2).
+id,name_key,category,max_stack,weight,rarity,tool_power,food_value,sphere_tier,sphere_multiplier,icon
+int,string,enum:ItemCategory,int(1..9999),float(0..500),int(0..4),int?,int?,int(1..5)?,float(1.0..3.0)?,string
+1,item.sphere_basic,sphere,50,0.5,0,,,1,1.0,icons/sphere_basic
+2,item.sphere_mega,sphere,50,0.6,1,,,2,1.4,icons/sphere_mega
+3,item.sphere_giga,sphere,50,0.7,2,,,3,1.8,icons/sphere_giga
+4,item.wood,material,999,0.2,0,,,,,icons/wood
+5,item.stone,material,999,0.4,0,,,,,icons/stone
+6,item.potion_small,consumable,20,0.3,1,,40,,,icons/potion_small

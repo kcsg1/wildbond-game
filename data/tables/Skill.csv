@@ -1,0 +1,7 @@
+# docs/architecture.md §8.1 Skill. 2행은 타입 행이다.
+id,name_key,element,power,cooldown_ticks,range_px,cast_ticks,hit_shape,hit_w,hit_h,vfx_ref
+int,string,enum:Element,int(0..400),int(0..1200),int(0..2000),int(0..200),enum:HitShape,int(0..512),int(0..512),string
+1,skill.slash,none,40,10,48,2,rect,48,32,vfx/slash
+2,skill.arrow,none,35,16,320,4,projectile,8,8,vfx/arrow
+3,skill.ember,fire,55,24,288,6,projectile,12,12,vfx/ember
+4,skill.vine_whip,grass,50,30,160,5,cone,160,90,vfx/vine
