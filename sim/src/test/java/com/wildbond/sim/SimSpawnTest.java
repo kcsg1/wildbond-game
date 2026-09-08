@@ -24,9 +24,13 @@ class SimSpawnTest {
     assertThat(view.tick()).isEqualTo(0);
   }
 
+  /**
+   * 맵을 16×16 으로 잡아 SpawnSystem 의 야생 스폰(§9.1 "플레이어에서 24타일 이상")이 끼어들 자리를 없앤다 — 이 테스트가 보려는 것은 id 발급
+   * 순서뿐이다.
+   */
   @Test
   void stableIdsAreAssignedInAscendingSpawnOrder() {
-    Sim sim = TestSupport.newSim(TestSupport.openMap(20, 20), 1L);
+    Sim sim = TestSupport.newSim(TestSupport.openMap(16, 16), 1L);
 
     sim.step(
         0,

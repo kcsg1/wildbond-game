@@ -13,10 +13,16 @@ import com.wildbond.sim.Command;
 import com.wildbond.sim.Rng;
 import com.wildbond.sim.Ticks;
 import com.wildbond.sim.TileMap;
+import com.wildbond.sim.components.Brain;
+import com.wildbond.sim.components.CombatMemory;
 import com.wildbond.sim.components.Dead;
 import com.wildbond.sim.components.ElementComponent;
 import com.wildbond.sim.components.EntityIdComponent;
 import com.wildbond.sim.components.Health;
+import com.wildbond.sim.components.Owner;
+import com.wildbond.sim.components.PalData;
+import com.wildbond.sim.components.PalState;
+import com.wildbond.sim.components.PlayerTag;
 import com.wildbond.sim.components.Position;
 import com.wildbond.sim.components.Projectile;
 import com.wildbond.sim.components.Skills;
@@ -41,8 +47,14 @@ public final class CombatSystem extends BaseSystem {
   private final TileMap tileMap;
   private final EventBus eventBus;
   private final Rng rng;
+  private final SimClock clock;
 
   private List<Command> pending = List.of();
+
+  /** AISystem(§4.1 시스템 2번)이 이번 틱에 요청한 스킬 — {entityId, skillId, aimAngle} 3개씩 쌓인다. */
+  private int[] aiRequests = new int[3 * 8];
+
+  private int aiRequestCount;
 
   private ComponentMapper<Position> mPosition;
   private ComponentMapper<Health> mHealth;
@@ -52,22 +64,48 @@ public final class CombatSystem extends BaseSystem {
   private ComponentMapper<Dead> mDead;
   private ComponentMapper<Projectile> mProjectile;
   private ComponentMapper<EntityIdComponent> mEntityId;
+  private ComponentMapper<CombatMemory> mCombatMemory;
+  private ComponentMapper<Brain> mBrain;
+  private ComponentMapper<PlayerTag> mPlayer;
+  private ComponentMapper<Owner> mOwner;
+  private ComponentMapper<PalData> mPal;
 
   private int[] projectileIds = new int[8];
   private int projectileCount;
 
   public CombatSystem(
-      EntityIndex index, GameData gameData, TileMap tileMap, EventBus eventBus, Rng rng) {
+      EntityIndex index,
+      GameData gameData,
+      TileMap tileMap,
+      EventBus eventBus,
+      Rng rng,
+      SimClock clock) {
     this.index = index;
     this.gameData = gameData;
     this.tileMap = tileMap;
     this.eventBus = eventBus;
     this.rng = rng;
+    this.clock = clock;
   }
 
   /** Sim.step() 이 world.process() 전에 호출한다(CommandApplySystem 과 같은 명령 목록을 별도로 받는다). */
   public void enqueue(List<Command> commands) {
     this.pending = commands;
+  }
+
+  /**
+   * AI 가 발동하는 스킬 — 플레이어의 {@code Command.UseSkill} 과 같은 경로로 처리된다. AISystem 은 이 시스템보다 먼저 도므로 요청은 같은
+   * 틱에 소비된다.
+   */
+  public void requestSkill(int entityId, int skillId, int aimAngle) {
+    if (aiRequestCount * 3 == aiRequests.length) {
+      aiRequests = Arrays.copyOf(aiRequests, aiRequests.length * 2);
+    }
+    int base = aiRequestCount * 3;
+    aiRequests[base] = entityId;
+    aiRequests[base + 1] = skillId;
+    aiRequests[base + 2] = aimAngle;
+    aiRequestCount++;
   }
 
   @Override
@@ -80,6 +118,11 @@ public final class CombatSystem extends BaseSystem {
     mDead = world.getMapper(Dead.class);
     mProjectile = world.getMapper(Projectile.class);
     mEntityId = world.getMapper(EntityIdComponent.class);
+    mCombatMemory = world.getMapper(CombatMemory.class);
+    mBrain = world.getMapper(Brain.class);
+    mPlayer = world.getMapper(PlayerTag.class);
+    mOwner = world.getMapper(Owner.class);
+    mPal = world.getMapper(PalData.class);
   }
 
   @Override
@@ -89,10 +132,16 @@ public final class CombatSystem extends BaseSystem {
 
     for (int i = 0; i < pending.size(); i++) {
       if (pending.get(i) instanceof Command.UseSkill useSkill) {
-        handleUseSkill(useSkill);
+        handleUseSkill(useSkill.entityId(), useSkill.skillId(), useSkill.aimAngle());
       }
     }
     pending = List.of();
+
+    for (int i = 0; i < aiRequestCount; i++) {
+      int base = i * 3;
+      handleUseSkill(aiRequests[base], aiRequests[base + 1], aiRequests[base + 2]);
+    }
+    aiRequestCount = 0;
 
     processDeaths();
   }
@@ -113,29 +162,29 @@ public final class CombatSystem extends BaseSystem {
     }
   }
 
-  private void handleUseSkill(Command.UseSkill useSkill) {
-    int casterArtemisId = index.artemisIdOf(useSkill.entityId());
-    if (mDead.has(casterArtemisId) || !mSkills.has(casterArtemisId)) {
+  private void handleUseSkill(int casterStableId, int skillId, int aimAngle) {
+    int casterArtemisId = index.artemisIdOrMissing(casterStableId);
+    if (casterArtemisId < 0 || mDead.has(casterArtemisId) || !mSkills.has(casterArtemisId)) {
       return;
     }
     Skills skills = mSkills.get(casterArtemisId);
-    int slot = indexOfSkill(skills, useSkill.skillId());
+    int slot = indexOfSkill(skills, skillId);
     if (slot < 0 || skills.cooldownRemainingTicks[slot] > 0) {
       return; // 모르는 스킬이거나 쿨다운 중 — 재사용 무시.
     }
 
-    Skill skill = gameData.skill(useSkill.skillId());
+    Skill skill = gameData.skill(skillId);
     skills.cooldownRemainingTicks[slot] = skill.cooldownTicks();
 
     Position casterPos = mPosition.get(casterArtemisId);
-    float theta = Angle.toRadians(useSkill.aimAngle());
+    float theta = Angle.toRadians(aimAngle);
     float cosT = (float) StrictMath.cos(theta);
     float sinT = (float) StrictMath.sin(theta);
 
     if (skill.hitShape() == HitShape.PROJECTILE) {
-      spawnProjectile(useSkill.entityId(), casterPos, skill, cosT, sinT);
+      spawnProjectile(casterStableId, casterPos, skill, cosT, sinT);
     } else {
-      resolveMeleeHit(casterArtemisId, useSkill.entityId(), casterPos, skill, cosT, sinT);
+      resolveMeleeHit(casterArtemisId, casterPos, skill, cosT, sinT);
     }
   }
 
@@ -149,16 +198,11 @@ public final class CombatSystem extends BaseSystem {
   }
 
   private void resolveMeleeHit(
-      int casterArtemisId,
-      int casterStableId,
-      Position casterPos,
-      Skill skill,
-      float cosT,
-      float sinT) {
+      int casterArtemisId, Position casterPos, Skill skill, float cosT, float sinT) {
     int n = index.size();
     for (int i = 0; i < n; i++) {
       int targetArtemisId = index.artemisIdAt(i);
-      if (!isValidTarget(targetArtemisId, casterStableId)) {
+      if (!isValidTarget(targetArtemisId, casterArtemisId)) {
         continue;
       }
       Position targetPos = mPosition.get(targetArtemisId);
@@ -192,15 +236,38 @@ public final class CombatSystem extends BaseSystem {
     };
   }
 
-  private boolean isValidTarget(int artemisId, int excludeStableId) {
-    if (!mHealth.has(artemisId)
-        || !mStats.has(artemisId)
-        || !mElement.has(artemisId)
-        || !mPosition.has(artemisId)
-        || mDead.has(artemisId)) {
+  private boolean isValidTarget(int targetArtemisId, int casterArtemisId) {
+    if (!mHealth.has(targetArtemisId)
+        || !mStats.has(targetArtemisId)
+        || !mElement.has(targetArtemisId)
+        || !mPosition.has(targetArtemisId)
+        || mDead.has(targetArtemisId)) {
       return false;
     }
-    return mEntityId.get(artemisId).value != excludeStableId;
+    if (targetArtemisId == casterArtemisId) {
+      return false;
+    }
+    return casterArtemisId < 0 || !sameSide(casterArtemisId, targetArtemisId);
+  }
+
+  /**
+   * 같은 편끼리는 맞지 않는다 — 파티 팰의 범위 스킬(부채꼴·직사각형)이 주인을 때리거나 야생끼리 난투가 벌어지는 것을 막는다.
+   *
+   * <p>문서에 진영 개념이 따로 없어 M0 은 두 편만 둔다: 플레이어와 그 파티 팰 / 주인 없는 야생 팰. 허수아비(단계 6)는 어느 쪽도 아니라 누구에게나 맞는다.
+   */
+  private boolean sameSide(int a, int b) {
+    if (isPlayerSide(a) && isPlayerSide(b)) {
+      return true;
+    }
+    return isWildPal(a) && isWildPal(b);
+  }
+
+  private boolean isPlayerSide(int artemisId) {
+    return mPlayer.has(artemisId) || mOwner.has(artemisId);
+  }
+
+  private boolean isWildPal(int artemisId) {
+    return mPal.has(artemisId) && !mOwner.has(artemisId);
   }
 
   private void applyDamage(int casterArtemisId, int targetArtemisId, Skill skill) {
@@ -232,10 +299,31 @@ public final class CombatSystem extends BaseSystem {
     int targetStableId = mEntityId.get(targetArtemisId).value;
     eventBus.enqueue(new Damaged(targetStableId, damage, targetPos.x, targetPos.y, crit));
 
+    rememberEngagement(casterArtemisId, targetArtemisId, targetStableId);
+
     if (health.current <= 0 && !mDead.has(targetArtemisId)) {
       Dead dead = world.edit(targetArtemisId).create(Dead.class);
       dead.ticksRemaining = CombatConstants.DEAD_REMOVE_TICKS;
       eventBus.enqueue(new Died(targetStableId));
+    }
+  }
+
+  /**
+   * 공격자에게는 "마지막으로 때린 대상"을, 맞은 쪽에는 "때린 놈"을 남긴다.
+   *
+   * <p>앞은 파티 팰이 주인을 따라 싸우게 하고(docs/m0-prompts.md 단계7), 뒤는 야생 팰이 맞으면 반격하게 한다(§9.1 Combat 은 threat 이
+   * 있을 때 도는데, 시야 밖에서 원거리로 맞는 경우 감지만으로는 threat 이 생기지 않는다).
+   */
+  private void rememberEngagement(int casterArtemisId, int targetArtemisId, int targetStableId) {
+    if (mCombatMemory.has(casterArtemisId)) {
+      CombatMemory memory = mCombatMemory.get(casterArtemisId);
+      memory.lastTargetStableId = targetStableId;
+      memory.lastTargetTick = clock.tick();
+    }
+    if (mBrain.has(targetArtemisId) && mEntityId.has(casterArtemisId)) {
+      Brain brain = mBrain.get(targetArtemisId);
+      brain.threatStableId = mEntityId.get(casterArtemisId).value;
+      brain.state = PalState.COMBAT;
     }
   }
 
@@ -283,9 +371,14 @@ public final class CombatSystem extends BaseSystem {
       pos.x = newX;
       pos.y = newY;
 
-      int hitTargetArtemisId = findProjectileTarget(proj, pos);
+      int casterArtemisId = index.artemisIdOrMissing(proj.ownerStableId);
+      if (casterArtemisId < 0) {
+        destroyProjectile(artemisId, i); // 쏜 쪽이 이미 사라졌다 — 진영 판정도 데미지도 할 수 없다.
+        i--;
+        continue;
+      }
+      int hitTargetArtemisId = findProjectileTarget(proj, pos, casterArtemisId);
       if (hitTargetArtemisId >= 0) {
-        int casterArtemisId = index.artemisIdOf(proj.ownerStableId);
         applyDamage(casterArtemisId, hitTargetArtemisId, gameData.skill(proj.skillId));
         destroyProjectile(artemisId, i);
         i--;
@@ -299,11 +392,11 @@ public final class CombatSystem extends BaseSystem {
     return tileMap.collision(tx, ty) != TileCollision.NONE;
   }
 
-  private int findProjectileTarget(Projectile proj, Position projPos) {
+  private int findProjectileTarget(Projectile proj, Position projPos, int casterArtemisId) {
     int n = index.size();
     for (int i = 0; i < n; i++) {
       int targetArtemisId = index.artemisIdAt(i);
-      if (!isValidTarget(targetArtemisId, proj.ownerStableId)) {
+      if (!isValidTarget(targetArtemisId, casterArtemisId)) {
         continue;
       }
       Position targetPos = mPosition.get(targetArtemisId);

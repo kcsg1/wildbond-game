@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.wildbond.sim.ReplayDeterminismTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-09-04T08:23:43.217Z" hostname="DESKTOP-RQGQ0JB" time="0.009">
-  <properties/>
-  <testcase name="sameSeedSameCommandsProduceSameHash()" classname="com.wildbond.sim.ReplayDeterminismTest" time="0.006"/>
-  <testcase name="differentSeedProducesDifferentHash()" classname="com.wildbond.sim.ReplayDeterminismTest" time="0.002"/>
-  <system-out><![CDATA[]]></system-out>
-  <system-err><![CDATA[]]></system-err>
-</testsuite>

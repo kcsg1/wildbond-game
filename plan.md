@@ -2,15 +2,154 @@
 
 가장 최근 항목이 **위**에 온다. 형식은 `CLAUDE.md` "작업 절차" 참고. 단계 번호는 `docs/m0-prompts.md` 기준.
 
+## 2026-09-06 (후속) — 경로·git 정리 + 임시 스프라이트 입히기
+- 목표: (1) 작업 트리 위치와 GitHub 연결을 확정하고, (2) 단색 블록이던 엔티티를 형태가 보이는 임시 스프라이트로 교체
+- 한 일:
+  - **경로 확정**: 바탕화면이 OneDrive 로 리디렉션돼 있어 그 안에서는 Gradle 이 `build/` 를 지우지 못해 빌드가
+    깨졌다(T-011). 정본을 `C:\develop\develop\wildbond-game\wildbond-game` 으로 두고 Gradle 홈·JDK 도
+    `C:\develop\develop\` 로 모았다. CLAUDE.md "환경" 갱신
+  - **git 연결**: 기존 저장소(GitHub `kcsg1/wildbond-game`, commit `bedbf17 First commit`)의 `.git` 을 정본
+    트리로 가져와 이력과 remote `origin` 을 살렸다. `.gitignore` 가 없어 `build/`·`.gradle/` 이 통째로 커밋돼
+    있었으므로 `.gitignore` 를 추가하고 `git rm --cached` 로 추적에서 뺐다(321개). CLAUDE.md 의 "git 도입 안 함"
+    항목을 "도입됨, 단 push/force/reset --hard 는 사람 지시로만" 으로 고쳤다
+  - **임시 스프라이트**: `client/render/PlaceholderSprites` 가 Pixmap 으로 그린다 — 플레이어는 32×48 사람
+    (머리카락·얼굴·눈·셔츠·팔/손·바지·신발) 을 정면/후면/측면 × 정지/걷기 2프레임 시트로, 왼쪽은 측면 좌우 반전.
+    팰은 속성 색 크리처(귀·눈·다리·꼬리), 허수아비는 장대+가로대+짚 머리, 포획구는 원형 + 지면 그림자
+  - **방향·걷기 애니메이션은 렌더 전용**: sim 에 facing 을 추가하지 않고 ViewState 의 prev→cur 위치 차이로
+    뽑는다(§6 규칙 3 유지). 멈추면 정지 프레임, 방향은 마지막 값 유지
+  - `CaptureEffects` 에서 GL 자원을 걷어내 상태만 들고 있게 하고, 그리기는 스프라이트를 소유한
+    `EntityRenderer.renderCaptureShakes` 로 옮겼다
+  - 피격 표시를 흰 텍스처 교체 → 붉은 틴트로 바꿨다 (스프라이트에서는 통째로 흰 사각형이 되면 형태가 사라진다)
+- 검증: **하네스 전체 모드 통과** (`reports\harness\20260906-102024.md`, 67/0/0/0).
+  `:client-desktop:run` 을 띄워 `PrintWindow`(T-007)로 캡처 — 플레이어가 사람 형태로, 허수아비가 허수아비로,
+  야생 팰(emberpup)이 크리처로 보이는 것을 확인했다. 스프라이트가 뒤집히지 않는 것도 함께 확인(T-012)
+- 결정:
+  - **스프라이트는 파일 에셋이 아니라 런타임 Pixmap 생성으로 둔다.** §10 의 2048² 아틀라스는 M1 이후이고,
+    지금 필요한 것은 "형태가 구분되는 임시 그림"이다. 새 모듈·새 Gradle 태스크·새 바이너리 에셋 없이 끝난다
+  - **yDown 카메라 대응으로 모든 리전을 세로 반전**해서 돌려준다 (T-012). 단색 블록일 때는 드러나지 않던 문제다
+- 남은 일: 아래 "현재 상태" 참고. 스프라이트는 어디까지나 임시다 — 실제 아트는 M1 이후 아틀라스로 교체
+
+---
+
 ## 현재 상태
 
-- 마일스톤: M0 수직 슬라이스
-- 다음 단계: 6 완료 → 7 (팰: 스폰·야생 AI·포획·동행)
-- 열린 결정: 없음 (architecture.md §13 기본안 적용 중)
-- 하네스: 단계 6 전체 모드 통과 (17:23, 50/50, sim:bench 예산 내 유지). `:client-desktop:run` 화면은
-  스크린샷으로 확인(허수아비 렌더링, 674틱 무크래시). **마우스 좌/우클릭 스킬 발동 조작만 아직 사람 확인
-  필요** — 이 세션은 원격 입력 주입이 막혀 있다(T-007과 같은 제약, 아래 "검증" 참고)
-- 경로: 프로젝트 `C:\Users\user\Desktop\develop\wildbond-game`, Gradle 홈 `...\develop\.gradle-home` (CLAUDE.md "환경")
+- 마일스톤: M0 수직 슬라이스 — **단계 7까지 구현 완료**
+- 다음 단계: M0 수용 기준 사람 확인 → M1(거점 루프) 프롬프트 작성
+- 열린 결정: 없음. 경로·git 은 2026-09-06 후속 작업에서 확정 (CLAUDE.md "환경" 참고)
+- git: GitHub `kcsg1/wildbond-game` `main`. **단계 7 작업은 아직 커밋되지 않았다** — 사람이 지시하면 커밋·푸시한다
+- 하네스: 단계 7 전체 모드 통과 (`reports\harness\20260906-094120.md`, 67/0/0/0).
+  `:sim:bench` 두 시나리오 모두 예산 내
+- 환경: 이 트리에는 JDK 가 없어 Temurin 25.0.4.1 을 `C:\develop\develop\jdk\` 에 설치하고 백신 SSL 스캐닝
+  루트 CA 를 그 JDK 의 cacerts 에 등록했다 (T-008). `JAVA_HOME`·`GRADLE_USER_HOME` 은 사용자 환경 변수로 설정됨
+- **사람 확인이 남은 것**: 마우스 좌/우클릭 스킬(단계 6), 숫자 키 1 포획구 던지기·포획·동행(단계 7).
+  이 환경은 GUI 앱에 키/마우스 입력을 주입할 수 없다(T-007)
+- 경로: CLAUDE.md 는 `C:\Users\user\Desktop\develop\wildbond-game` 로 적혀 있으나, 2026-09-06 세션의 실제
+  작업 트리는 `C:\develop\develop\wildbond-game\wildbond-game`, Gradle 홈은 `C:\develop\develop\.gradle-home`
+
+---
+
+## 2026-09-06 단계 7 — 팰: 스폰 · 야생 AI · 포획 · 동행  (구현 완료)
+- 목표: architecture.md §3.2 포획 규칙, §9.1 야생 BT, §9.3 경로 탐색을 M0 범위로 구현 — 청크 활성화 시 야생 팰이
+  스폰되어 배회하다 플레이어를 감지하면 덤비고, 포획구로 잡으면 파티에 들어와 따라다니며 주인 대신 싸운다.
+- 한 일 (sim):
+  - 컴포넌트 9종: `PalData`(speciesId/level/san/iv[3]), `Owner`, `Party`(slot), `Brain`(state·타이머·위협·속도),
+    `PalState`(enum), `PathComponent`(웨이포인트 200칸), `SpawnOrigin`(회수용 청크), `Sphere`(포획구, 가상 높이 z),
+    `CombatMemory`(마지막으로 때린 대상 — 파티 팰이 읽는다)
+  - `systems/bt` 자체 경량 BT — `BtStatus`/`BtNode<C>`/`Selector`/`Sequence`/`Condition`/`Action`/`Inverter`
+    (7타입). 컨텍스트를 제네릭으로 두어 이 패키지가 컴포넌트·시스템을 전혀 모른다. `PalBehaviors` 가 야생 트리
+    (Flee / Combat(UseSkill|Chase) / Idle(Wander→Wait), §9.1)와 파티 트리(주인의 대상 Combat / FollowOwner)를
+    각각 한 번만 만들어 모든 팰이 공유한다 — 상태는 전부 Brain 에 있으므로 틱마다 노드를 할당하지 않는다
+  - `Pathfinder` — 8방향 A* 와 JPS 를 같은 정수 비용 모델(직교 10 / 대각 14)로 구현. 코너 컷 금지, 경로 길이
+    상한 200, 틱당 요청 상한 40(§9.3). 시작·목표를 감싸는 고정 창(최대 96×96) 안에서만 탐색하고 배열을 세대
+    스탬프로 재사용해 요청당 할당이 없다. 동점 f 비용은 창 인덱스로 갈라 결정적이다
+  - `Sensing.hasLineOfSight` — Bresenham 레이캐스트, solid/cliff 만 시야를 막고 물은 막지 않는다(§9.1)
+  - `AiSystem`(§4.1 2번) + `AiContext`(BT 가 보는 세상) — 개체별 0.25s 간격 감지, 위협 탐색은 EntityId 오름차순,
+    시야가 트이면 직접 조향하고 막히면 경로 요청
+  - `PathFollowSystem`(3번), `SpawnSystem`(10번 — 플레이어 청크 반경 2 활성/휴면, 새로 켜진 청크마다 종 1가지·
+    3마리를 플레이어에서 24타일 이상 떨어진 walkable 타일에, 휴면 시 주인 없는 팰만 회수),
+    `CaptureSystem`(6번 — 포물선 포획구, z=0 낙하 타일 ∩ 팰 AABB → §3.2 공식)
+  - `CaptureFormula`(§3.2 순수 함수) + `CaptureConstants`, `PalConstants`, `PalFactory`, `SimClock`
+  - 공개 API 확장: `Command.ThrowSphere`/`SpawnPal`, `EntityKind.PAL`/`SPHERE`,
+    `SimView.maxHealth/speciesId/level/ownerId/renderZ/partyEntityId/PARTY_SLOTS`,
+    이벤트 `PalCaptured(흔들림 1~3 포함)`/`PalCaptureFailed`
+  - `CombatSystem`: AI 가 쓰는 `requestSkill(...)` 통로, 데미지 시 공격자 CombatMemory·피격자 위협 기록,
+    **진영 판정 추가**(아래 "결정")
+  - `EntityIndex.artemisIdOrMissing` — 사라진 대상을 가리키는 명령·AI 참조를 예외 없이 무시
+  - `:sim:bench` 를 시나리오 2개로 확장: 기존 혼잡(500엔티티, ≤8ms) + **팰 24마리(≤3ms, 단계7 수용 기준)**.
+    두 번째는 플레이어 둘레에 해자를 파 24마리가 1000틱 내내 추격 상태로 남게 했다(중간에 죽어 유휴 측정이
+    되는 것을 막기 위함). 남은 엔티티 수를 함께 출력해 측정 대상이 사라졌는지 눈으로 알 수 있게 했다
+  - 테스트 21개 — `CaptureFormulaTest` 4(HP 5% + 3단계 포획구 1000회 ±3%p, HP 보너스, 레벨 페널티, 클램프),
+    `CaptureSystemTest` 3(성공 시 Owner/Party 배정, 실패 시 야생 유지 + Combat 전환, 1000회 시뮬 성공률 ±3%p),
+    `PathfinderTest` 5(연못 우회, JPS 비용 = A* 비용, 코너 컷 금지, 도달 불가·창 초과 실패, 틱 상한),
+    `WildPalAiTest` 4(solid/cliff 는 시야를 막고 물은 안 막음, 벽 너머 미감지, 트인 곳에서 추격·공격, 배회),
+    `PartyPalTest` 1(포획 → 파티 슬롯 → 동행 → 주인의 대상 공격 → 주인 오사 없음)
+- 한 일 (client):
+  - `ViewState` 스냅샷에 kind/z/maxHp/speciesId/ownerId 와 파티 슬롯 5칸 추가
+  - `EntityRenderer` — 팰은 종 속성 색 32×32(대형은 64×64) 블록 + 어두운 테두리(풀 속성이 풀밭에 묻히지 않게),
+    포획구는 지면 그림자 + 가상 높이 z 만큼 띄워 그린다
+  - `CaptureEffects` — PalCaptured/PalCaptureFailed 를 받아 낙하 지점에서 흔들림 횟수만큼 포획구를 흔들고,
+    그동안 팰을 감췄다가 실패면 다시 나타나게 한다
+  - `PartyHud` — 파티 5칸(종 이름, HP 바). 문자열은 전부 ASCII (T-009)
+  - `InputMapper`/`CaptureBindings`/`PlayScreen` — 숫자 키 1 → 마우스 방향·고정 거리 6타일 ThrowSphere(클릭과
+    같은 래치 방식). 플레이어가 죽어 제거돼도 카메라가 (0,0)으로 떨어지지 않게 마지막 위치 유지 (T-010)
+- 검증: **하네스 전체 모드 통과** (`reports\harness\20260906-094120.md`) — spotlessApply / build /
+  sim:bench 각 1s, 총 4s(직전 실행 산출물 재사용). 테스트 총 67 / 실패 0 / 오류 0 / 스킵 0 (기존 50 + 신규 21,
+  ArchitectureTest 규칙 1개 포함해 조정 4). 캐시 없이도 통과하는지 확인하려고 `gradlew test --rerun-tasks`
+  로 19개 태스크를 전부 다시 실행해 클래스별 결과(모두 fail=0 err=0)까지 확인했다.
+  `:sim:bench`:
+  `crowd entities=500 ticks=1000 avg=0.264ms max=14.244ms alive=350` (§9.4 예산 8ms — 야생 팰이 스폰돼
+  싸우면서 150마리가 죽었고, 그만큼 실제 부하가 늘었는데도 여유),
+  `pals pals=24 ticks=1000 avg=0.007ms max=0.379ms alive=25` (단계7 수용 기준 3ms 대비 크게 여유. 시야가
+  트인 추격은 경로 탐색을 타지 않아 매우 싸다).
+  `:client-desktop:run` 을 띄워 `PrintWindow`(T-007)로 3회 캡처: 야생 팰(주황 테두리 블록 = emberpup)이
+  실제로 스폰돼 배회하다 플레이어에게 접근하는 것, 파티 HUD 5칸이 정상 표시되는 것, 60fps/avg 0.05~0.11ms
+  를 확인했다. **키·마우스 입력이 필요한 부분(포획구 던지기 → 포획 → 동행)은 이 환경에서 확인 못 했다**(T-007).
+  다만 첫 실행 캡처 한 장에 포획구로 보이는 물체(그림자 + 위로 뜬 흰 블록, 드로우콜도 2 더 높음)가 찍혔다 —
+  내가 의도해서 던진 것이 아니라 창이 포커스를 가진 동안 들어간 키 입력으로 추정하며, 그렇다면 포획구 렌더
+  경로도 실제로 동작한 것이다. 재현하지 못했으므로 "확인됨"으로 세지 않는다
+- 결정:
+  - **`PalData` 에 hp 를 넣지 않았다.** m0-prompts 단계7 프롬프트는 `PalData(speciesId, level, hp, san, iv[])`
+    라고 적었지만 architecture.md §4.1 은 `PalData(speciesId, level, iv[], passives[], san)` 로 hp 를 빼고
+    `Health` 를 별도 컴포넌트로 둔다. CLAUDE.md "코드와 문서가 충돌하면 문서를 따른다"에 따라 §4.1 을 택했다 —
+    단계 6 전투가 이미 Health 를 쓰고 있어 두 벌로 두면 어긋난다. `passives[]` 는 소비하는 시스템이 M0 에 없어
+    넣지 않았다(단계 6 에서 StatusEffects 를 미룬 것과 같은 이유)
+  - **CombatSystem 에 진영 판정을 넣었다** (`sameSide`) — 플레이어와 그 파티 팰이 한 편, 주인 없는 야생 팰이 한
+    편, 허수아비는 어느 편도 아니다. 없으면 파티 팰의 부채꼴 스킬이 주인을 때리고 야생끼리 난투가 벌어져
+    "대신 싸움" 수용 기준이 성립하지 않는다. 문서에 진영 개념이 따로 없어 M0 최소 규칙으로 두었고, 필요해지면
+    architecture.md 에 먼저 적는다
+  - **레벨 페널티는 `floor(max(0, palLvl - playerLvl) / 5)` 단계.** §3.2 는 "5레벨 초과마다 ×0.8"이라고만
+    적어 경계가 모호하다 — 레벨 차 0~4 는 페널티 없음, 5~9 는 ×0.8 로 해석했다
+  - **statusMultiplier 와 captureBonusFromTech 는 공식의 인자로만 두고 M0 은 1.0 을 넘긴다.** 상태이상을 거는
+    시스템도 기술 트리도 M0 에 없다 — 값을 만들어 내지 않고 공식만 완성해 두었다(테스트는 인자를 직접 넣어 검증)
+  - **포획 판정 난수는 `loot` 스트림.** §4.1 이 정한 스트림은 combat/spawn/loot 셋뿐이고, 포획은 전투 판정이
+    아니라 획득 판정에 가깝다고 봤다. 배회 목표·대기 시간 같은 AI 난수는 `spawn` 스트림을 쓴다
+  - **AI 는 시야가 트이면 경로 탐색 없이 직접 조향한다.** 매 틱 A* 를 돌리는 것은 §9.4 예산 낭비이고, 열린
+    지형에서는 직선이 곧 최단이다. 시야가 막힐 때만 경로를 요청하고, 개체별 재요청 간격(0.5s)과 틱당 40회
+    상한(§9.3)을 함께 건다
+  - **경로 탐색 창 여유를 24타일로 잡았다.** 처음 12타일로 뒀더니 세로로 긴 연못을 돌아가는 경로가 창 밖으로
+    밀려 실패했다(PathfinderTest 가 잡았다). 창을 벗어나는 먼 목표는 그대로 실패로 두는데, §9.3 의 경로 길이
+    상한 200 과 같은 취지다
+  - **JPS 는 "코너 컷 금지" 변형을 썼다** (PathFinding.js 의 `MoveDiagonallyIfNoObstacles` 와 같은 가지치기·
+    점프 규칙). 일반 JPS 의 강제 이웃 규칙은 대각 통과를 허용하는 전제라 그대로 쓰면 §9.3 과 어긋난다.
+    두 알고리즘이 같은 비용을 내는지 테스트로 못 박았다
+  - **`Command.SpawnPal` 을 추가했다** — 야생 스폰은 SpawnSystem 몫이지만, 테스트·벤치가 "정확히 여기에 이
+    개체"를 놓을 수 없으면 AI·포획을 결정적으로 검증할 방법이 없다. 개체값은 0 으로 고정해 난수를 소비하지 않는다
+  - **존재하지 않는 EntityId 를 가리키는 명령은 무시한다** (`artemisIdOrMissing`). 명령은 sim 밖에서 만들어지고
+    그 사이 대상이 죽어 제거될 수 있다 — 예외로 sim 을 멈추는 것이 오히려 틀린 동작이다
+  - **`SimSpawnTest` 의 맵을 20×20 → 16×16 으로 줄였다.** 야생 스폰(≥24타일)이 실제로 끼어들어 엔티티 수가
+    3→6 이 됐는데, 그 테스트가 보려는 것은 id 발급 순서뿐이라 스폰이 닿지 않는 크기로 픽스처를 좁혔다.
+    테스트를 지우거나 완화한 것이 아니라 격리한 것이다
+- 남은 일 / 다음 단계:
+  - **사람이 `.\gradlew.bat :client-desktop:run` 으로 M0 수용 기준을 최종 확인해야 한다** — 야생 팰이 배회하다
+    덤비는지, 때려서 HP 를 깎고 숫자 키 1 로 포획구를 던져 잡히는지(흔들림 연출), 잡힌 팰이 따라다니며 대신
+    싸우는지, 파티 HUD 에 이름·HP 가 뜨는지. 이 환경은 입력 주입이 막혀 있다(T-007)
+  - **밸런스 확인 필요**: 무조작으로 두면 야생 팰이 1분 안에 플레이어(HP 100)를 죽인다. M0 에는 사망·부활
+    처리가 없어(§12 로드맵 밖) 죽으면 카메라만 그 자리에 남는다. 사람이 직접 해 보고 너무 가혹하면
+    `PalConstants`/`CombatConstants` 를 조정한다
+  - ~~경로 불일치 정리~~ → 2026-09-06 후속 작업에서 확정됨. 다만
+    `...\wildbond-game\wildbond-game\wildbond-game\` 아래 docs/data/assets 만 있는 오래된 부분 복사본은
+    사람 판단으로 **그대로 두기로** 했다 — git 에 함께 올라가므로 나중에 정리 대상
+  - M0 완료 후 M1(거점 루프) 프롬프트 작성 (docs/m0-prompts.md 마지막 줄)
 
 ---
 

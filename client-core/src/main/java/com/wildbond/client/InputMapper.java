@@ -23,6 +23,8 @@ public final class InputMapper {
   private int meleeAimAngle;
   private boolean rangedPending;
   private int rangedAimAngle;
+  private boolean throwPending;
+  private int throwAimAngle;
 
   public void setControlledEntity(int stableId) {
     this.controlledEntityId = stableId;
@@ -38,6 +40,12 @@ public final class InputMapper {
   public void queueRangedSkill(int aimAngle) {
     rangedPending = true;
     rangedAimAngle = aimAngle;
+  }
+
+  /** PlayScreen 이 숫자 키 1(포획구 던지기)을 감지했을 때 호출한다 — 클릭과 같은 래치다. */
+  public void queueThrowSphere(int aimAngle) {
+    throwPending = true;
+    throwAimAngle = aimAngle;
   }
 
   /** GameLoop 이 틱마다 한 번 호출한다. */
@@ -58,7 +66,7 @@ public final class InputMapper {
     int dy = (down ? 1 : 0) - (up ? 1 : 0);
     Dir8 dir = resolveDir(dx, dy);
 
-    List<Command> commands = new ArrayList<>(3);
+    List<Command> commands = new ArrayList<>(4);
     commands.add(new Command.MoveInput(controlledEntityId, dir, run));
     if (meleePending) {
       commands.add(
@@ -69,6 +77,15 @@ public final class InputMapper {
       commands.add(
           new Command.UseSkill(controlledEntityId, CombatBindings.RANGED_SKILL_ID, rangedAimAngle));
       rangedPending = false;
+    }
+    if (throwPending) {
+      commands.add(
+          new Command.ThrowSphere(
+              controlledEntityId,
+              CaptureBindings.SPHERE_ITEM_ID,
+              throwAimAngle,
+              CaptureBindings.THROW_DISTANCE_PX));
+      throwPending = false;
     }
     return commands;
   }

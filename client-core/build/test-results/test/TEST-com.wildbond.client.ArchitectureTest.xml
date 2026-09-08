@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.wildbond.client.ArchitectureTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-09-04T08:23:42.749Z" hostname="DESKTOP-RQGQ0JB" time="0.747">
-  <properties/>
-  <testcase name="noSimComponents" classname="com.wildbond.client.ArchitectureTest" time="0.746"/>
-  <testcase name="noSimSystemsInternals" classname="com.wildbond.client.ArchitectureTest" time="0.001"/>
-  <system-out><![CDATA[]]></system-out>
-  <system-err><![CDATA[]]></system-err>
-</testsuite>

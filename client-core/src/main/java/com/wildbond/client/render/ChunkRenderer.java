@@ -8,8 +8,12 @@ import com.badlogic.gdx.utils.Disposable;
 import com.wildbond.data.chunk.Chunk;
 import com.wildbond.data.chunk.ChunkCoord;
 import com.wildbond.data.chunk.ChunkFormat;
+import com.wildbond.data.chunk.ChunkObject;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -34,6 +38,14 @@ public final class ChunkRenderer implements Disposable {
   private final ConcurrentLinkedQueue<Chunk> decoded = new ConcurrentLinkedQueue<>();
   private final Map<ChunkCoord, Integer> cacheIds = new HashMap<>();
   private final SpriteCache spriteCache = new SpriteCache(8192, false);
+
+  /**
+   * 로드된 청크의 배치 오브젝트(나무·자원 노드). 타일 캐시에 넣지 않고 따로 들고 있는다 — 나무는 32×32 보다 커서 타일 격자에 안 맞고, 엔티티와 함께 Y-정렬해야
+   * 플레이어가 나무 뒤로 지나갈 수 있기 때문이다({@link EntityRenderer} 가 그린다).
+   */
+  private final Map<ChunkCoord, List<ChunkObject>> propsByChunk = new HashMap<>();
+
+  private final List<ChunkObject> sortedProps = new ArrayList<>();
 
   private int lastRenderCalls;
 
@@ -110,6 +122,24 @@ public final class ChunkRenderer implements Disposable {
     }
     int cacheId = spriteCache.endCache();
     cacheIds.put(chunk.coord(), cacheId);
+
+    propsByChunk.put(chunk.coord(), List.copyOf(chunk.objects()));
+    rebuildSortedProps();
+  }
+
+  /** 청크가 새로 올라올 때만 다시 정렬한다 — 오브젝트는 움직이지 않으므로 매 프레임 정렬할 이유가 없다. */
+  private void rebuildSortedProps() {
+    sortedProps.clear();
+    for (List<ChunkObject> objects : propsByChunk.values()) {
+      sortedProps.addAll(objects);
+    }
+    sortedProps.sort(
+        Comparator.comparingInt(ChunkObject::tileY).thenComparingInt(ChunkObject::tileX));
+  }
+
+  /** 그리기 순서(위에서 아래)로 정렬된, 현재 로드된 배치 오브젝트. */
+  public List<ChunkObject> props() {
+    return sortedProps;
   }
 
   private void addTile(int gid, float worldX, float worldY) {

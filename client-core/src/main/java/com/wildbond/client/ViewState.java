@@ -20,7 +20,11 @@ public final class ViewState {
     private EntityKind kind;
     private float x;
     private float y;
+    private float z;
     private int hp;
+    private int maxHp;
+    private int speciesId;
+    private int ownerId;
 
     public int id() {
       return id;
@@ -38,14 +42,34 @@ public final class ViewState {
       return y;
     }
 
+    /** 지면 위 가상 높이 — 포획구 포물선(§3.2). 그 외에는 0. */
+    public float z() {
+      return z;
+    }
+
     public int hp() {
       return hp;
+    }
+
+    public int maxHp() {
+      return maxHp;
+    }
+
+    /** 팰이면 PalSpecies id, 아니면 -1. */
+    public int speciesId() {
+      return speciesId;
+    }
+
+    /** 주인이 있으면 그 EntityId, 아니면 -1. */
+    public int ownerId() {
+      return ownerId;
     }
   }
 
   private Map<Integer, Snapshot> prev = new LinkedHashMap<>();
   private Map<Integer, Snapshot> cur = new LinkedHashMap<>();
   private final Deque<Snapshot> pool = new ArrayDeque<>();
+  private final int[] partySlots = new int[SimView.PARTY_SLOTS];
 
   public void capture(SimView view) {
     pool.addAll(prev.values());
@@ -63,14 +87,36 @@ public final class ViewState {
       snapshot.kind = view.kind(id);
       snapshot.x = view.x(id);
       snapshot.y = view.y(id);
+      snapshot.z = view.renderZ(id);
       snapshot.hp = view.health(id);
+      snapshot.maxHp = view.maxHealth(id);
+      snapshot.speciesId = view.speciesId(id);
+      snapshot.ownerId = view.ownerId(id);
       cur.put(id, snapshot);
+    }
+
+    for (int slot = 0; slot < partySlots.length; slot++) {
+      partySlots[slot] = view.partyEntityId(slot);
     }
   }
 
   /** 현재 틱의 스냅샷들 — EntityRenderer 가 이걸 순회하며 Y-정렬해 그린다. */
   public Collection<Snapshot> current() {
     return cur.values();
+  }
+
+  /** 파티 슬롯의 팰 EntityId (비었으면 -1) — HUD 가 읽는다. */
+  public int partyEntityId(int slot) {
+    return slot >= 0 && slot < partySlots.length ? partySlots[slot] : -1;
+  }
+
+  public int partySlotCount() {
+    return partySlots.length;
+  }
+
+  /** id 의 현재 틱 스냅샷. 없으면 null. */
+  public Snapshot snapshot(int id) {
+    return cur.get(id);
   }
 
   /** id 가 직전 틱에도 있었으면 그 x, 없으면(막 스폰됨) fallback. */
@@ -82,6 +128,11 @@ public final class ViewState {
   public float prevY(int id, float fallback) {
     Snapshot s = prev.get(id);
     return s != null ? s.y : fallback;
+  }
+
+  public float prevZ(int id, float fallback) {
+    Snapshot s = prev.get(id);
+    return s != null ? s.z : fallback;
   }
 
   /** 현재(cur) 틱의 x — 카메라가 플레이어를 따라가는 등, 보간과 무관하게 최신 값이 필요할 때 쓴다. */

@@ -8,6 +8,7 @@ import com.wildbond.client.InputMapper;
 import com.wildbond.client.ViewState;
 import com.wildbond.client.WildbondGame;
 import com.wildbond.client.map.FileChunkLoader;
+import com.wildbond.client.render.CaptureEffects;
 import com.wildbond.client.render.HitEffects;
 import com.wildbond.client.render.RenderConstants;
 import com.wildbond.data.Element;
@@ -17,6 +18,8 @@ import com.wildbond.sim.Command;
 import com.wildbond.sim.Sim;
 import com.wildbond.sim.SimView;
 import com.wildbond.sim.events.Damaged;
+import com.wildbond.sim.events.PalCaptureFailed;
+import com.wildbond.sim.events.PalCaptured;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
@@ -75,10 +78,16 @@ public final class BootScreen implements Screen {
     viewState.capture(view);
 
     HitEffects hitEffects = new HitEffects();
+    CaptureEffects captureEffects = new CaptureEffects();
     sim.subscribe(
         event -> {
-          if (event instanceof Damaged damaged) {
-            hitEffects.onDamaged(damaged);
+          switch (event) {
+            case Damaged damaged -> hitEffects.onDamaged(damaged);
+            case PalCaptured captured -> captureEffects.onCaptured(captured);
+            case PalCaptureFailed failed -> captureEffects.onCaptureFailed(failed);
+            default -> {
+              // 이동·스폰 이벤트는 렌더가 ViewState 로 이미 보고 있다.
+            }
           }
         });
 
@@ -86,7 +95,16 @@ public final class BootScreen implements Screen {
         new Texture(Gdx.files.absolute(config.tilesetFile().toAbsolutePath().toString()));
 
     game.setScreen(
-        new PlayScreen(inputMapper, viewState, sim, chunkLoader, tileset, playerId, hitEffects));
+        new PlayScreen(
+            inputMapper,
+            viewState,
+            sim,
+            gameData,
+            chunkLoader,
+            tileset,
+            playerId,
+            hitEffects,
+            captureEffects));
   }
 
   private GameData loadGameData() {

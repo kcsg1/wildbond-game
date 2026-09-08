@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.wildbond.data.chunk.ChunkRoundTripTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-09-04T01:53:44.272Z" hostname="DESKTOP-RQGQ0JB" time="0.137">
-  <properties/>
-  <testcase name="magicAndVersionAreRejectedWhenWrong()" classname="com.wildbond.data.chunk.ChunkRoundTripTest" time="0.082"/>
-  <testcase name="compressedFileIsSmallerThanRawPayload()" classname="com.wildbond.data.chunk.ChunkRoundTripTest" time="0.024"/>
-  <testcase name="writeThenReadReproducesTheChunk()" classname="com.wildbond.data.chunk.ChunkRoundTripTest" time="0.031"/>
-  <system-out><![CDATA[]]></system-out>
-  <system-err><![CDATA[]]></system-err>
-</testsuite>

@@ -6,6 +6,9 @@ package com.wildbond.sim;
  */
 public interface SimView {
 
+  /** 파티 슬롯 수 (§3.1 "파티(팰 5)"). */
+  int PARTY_SLOTS = 5;
+
   /** 현재 살아있는 엔티티 수. */
   int entityCount();
 
@@ -19,7 +22,25 @@ public interface SimView {
   /** Health 컴포넌트가 없으면 -1. */
   int health(int stableId);
 
+  /** Health 컴포넌트가 없으면 -1. HP 바를 그리려면 필요하다. */
+  int maxHealth(int stableId);
+
   EntityKind kind(int stableId);
+
+  /** 팰이면 PalSpecies id, 아니면 -1. */
+  int speciesId(int stableId);
+
+  /** 팰이면 개체 레벨, 아니면 -1. */
+  int level(int stableId);
+
+  /** 주인이 있으면 그 EntityId, 없으면(야생·플레이어 등) -1. */
+  int ownerId(int stableId);
+
+  /** 지면 위로 뜬 가상 높이(포획구 포물선). 대부분의 엔티티는 0 (§3.2). */
+  float renderZ(int stableId);
+
+  /** 플레이어 파티의 slot 번째 팰 EntityId. 비었으면 -1. */
+  int partyEntityId(int slot);
 
   /** 마지막으로 처리한 틱 번호. */
   int tick();

@@ -71,19 +71,50 @@ class ChunkCompilerTest {
 
   @Test
   void threeStoneResourceNodesAreAssignedToTheirOwningChunks() {
-    long total = chunks.stream().mapToLong(c -> c.objects().size()).sum();
+    // 맵에는 나무 오브젝트도 많으므로 자원 노드만 세어야 한다.
+    long total = chunks.stream().mapToLong(c -> countOfType(c, "resource_node")).sum();
     assertThat(total).isEqualTo(3);
 
     // 오브젝트 tile(20,20) -> 청크(0,0)
-    assertThat(chunkAt(0, 0).objects()).hasSize(1);
-    ChunkObject inChunk00 = chunkAt(0, 0).objects().get(0);
-    assertThat(inChunk00.type()).isEqualTo("resource_node");
+    assertThat(countOfType(chunkAt(0, 0), "resource_node")).isEqualTo(1);
+    ChunkObject inChunk00 =
+        chunkAt(0, 0).objects().stream()
+            .filter(o -> "resource_node".equals(o.type()))
+            .findFirst()
+            .orElseThrow();
     assertThat(inChunk00.props()).isEqualTo(Map.of("item", "5"));
 
     // tile(45,10) -> 청크(1,0), tile(50,50) -> 청크(1,1)
-    assertThat(chunkAt(1, 0).objects()).hasSize(1);
-    assertThat(chunkAt(1, 1).objects()).hasSize(1);
-    assertThat(chunkAt(0, 1).objects()).isEmpty();
+    assertThat(countOfType(chunkAt(1, 0), "resource_node")).isEqualTo(1);
+    assertThat(countOfType(chunkAt(1, 1), "resource_node")).isEqualTo(1);
+    assertThat(countOfType(chunkAt(0, 1), "resource_node")).isZero();
+  }
+
+  /** 나무·자원 노드처럼 길을 막는 오브젝트는 그 타일의 collision 을 solid 로 만든다(§8.2, ChunkCompiler). */
+  @Test
+  void blockingObjectsStampSolidCollisionUnderThemselves() {
+    ChunkObject tree =
+        chunks.stream()
+            .flatMap(c -> c.objects().stream())
+            .filter(o -> "tree".equals(o.type()))
+            .findFirst()
+            .orElseThrow(() -> new AssertionError("맵에 나무 오브젝트가 없다"));
+
+    Chunk owning = chunkAt(tree.tileX() / ChunkFormat.SIZE, tree.tileY() / ChunkFormat.SIZE);
+    int bits =
+        owning
+                .collision()[
+                Chunk.indexOf(tree.tileX() % ChunkFormat.SIZE, tree.tileY() % ChunkFormat.SIZE)]
+            & 0xFF;
+    assertThat(ChunkFormat.collisionFromBits(bits)).isEqualTo(TileCollision.SOLID);
+
+    // 자원 노드(돌)도 마찬가지다 — tile(20,20) -> 청크(0,0)
+    int stoneBits = chunkAt(0, 0).collision()[Chunk.indexOf(20, 20)] & 0xFF;
+    assertThat(ChunkFormat.collisionFromBits(stoneBits)).isEqualTo(TileCollision.SOLID);
+  }
+
+  private static long countOfType(Chunk chunk, String type) {
+    return chunk.objects().stream().filter(o -> type.equals(o.type())).count();
   }
 
   private Chunk chunkAt(int cx, int cy) {

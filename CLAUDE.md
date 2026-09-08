@@ -4,10 +4,17 @@
 
 ## 환경 (고정)
 
-- 프로젝트 경로: `C:\Users\user\Desktop\develop\wildbond-game`
-- Gradle 홈: `C:\Users\user\Desktop\develop\.gradle-home` (환경 변수 `GRADLE_USER_HOME`)
-- 두 경로 모두 **백신 예외 처리된 트리**여야 한다. `%USERPROFILE%\.gradle` 로 되돌리지 않는다 (T-002).
-- JDK: Temurin 25 LTS 하나 (D-15). Gradle 9.2.0 (래퍼 고정).
+- 프로젝트 경로: `C:\develop\develop\wildbond-game\wildbond-game` — **이것이 정본이다.**
+  GitHub `kcsg1/wildbond-game` (remote `origin`, branch `main`)의 작업본이다.
+- Gradle 홈: `C:\develop\develop\.gradle-home` (환경 변수 `GRADLE_USER_HOME`)
+- JDK: `C:\develop\develop\jdk\jdk-25.0.4.1+1` (환경 변수 `JAVA_HOME`) —
+  Temurin 25 LTS 하나 (D-15). Gradle 9.2.0 (래퍼 고정). `git` 은 `C:\Program Files\Git\cmd\git.exe`
+  (PATH 에 없으므로 전체 경로로 부른다).
+- **OneDrive 동기화 폴더 안에 두지 않는다.** 바탕화면이 OneDrive 로 리디렉션돼 있어서 거기 두면 Gradle 이
+  `build/` 를 지우지 못해 빌드가 깨진다(`Unable to delete directory ... a process has files open`, T-011).
+  세 경로 모두 **백신 예외 처리된 트리**여야 하고, `%USERPROFILE%\.gradle` 로 되돌리지 않는다 (T-002).
+- 이 PC 의 백신이 SSL/TLS 스캐닝을 하므로, JDK 를 새로 깔면 그 루트 CA 를 JDK 의 `cacerts` 에 넣어야
+  Gradle 이 배포판·의존성을 받을 수 있다 (T-008).
 
 ## 작업 절차 — 모든 작업은 이 순서를 따른다
 
@@ -120,5 +127,7 @@ tools/datagen        → (프로젝트 의존 없음 — data 의 소스를 생�
 - `plan.md`·`troubleshooting.md` 기록을 건너뛰지 않는다. 실패를 기록하지 않고 조용히 되돌리지 않는다.
 - `troubleshooting.md`를 읽지 않고 작업을 시작하지 않는다.
 - 하네스를 돌리지 않고 "테스트 통과"라고 보고하지 않는다. 하네스 실패 상태에서 단계를 끝내지 않는다.
-- 버전 관리(git)·CI는 아직 도입하지 않는다. `.git*`, `.gitlab-ci.yml` 등을 만들지 않고, git 설치나 명령을 요구하지도 않는다. 필요해지면 사람이 먼저 지시한다.
+- **버전 관리(git)는 2026-09-06 도입됐다** (GitHub `kcsg1/wildbond-game`). 커밋은 해도 되지만
+  **`push`·`force`·`reset --hard` 같은 이력·원격을 건드리는 조작은 사람이 지시할 때만** 한다.
+  빌드 산출물(`build/`, `.gradle/`)은 `.gitignore` 가 막는다 — 다시 추적되게 만들지 않는다. CI는 아직 없다.
 - bash·WSL·Git Bash를 전제로 하는 스크립트를 만들지 않는다. 도구 스크립트는 PowerShell 또는 Gradle 태스크로 작성한다.

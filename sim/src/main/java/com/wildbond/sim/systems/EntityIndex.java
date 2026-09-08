@@ -48,6 +48,16 @@ public final class EntityIndex {
     return artemisIds[idx];
   }
 
+  /**
+   * 이미 사라진 엔티티를 가리킬 수 있는 곳(명령·AI 가 들고 있던 대상 id)에서 쓴다. 없으면 -1.
+   *
+   * <p>명령은 sim 밖에서 만들어지고 그 사이에 대상이 죽어 제거될 수 있다 — 그런 명령은 조용히 무시하는 것이 맞다(예외로 sim 을 멈추지 않는다).
+   */
+  public int artemisIdOrMissing(int stableId) {
+    int idx = Arrays.binarySearch(stableIds, 0, size, stableId);
+    return idx < 0 ? -1 : artemisIds[idx];
+  }
+
   /** 엔티티를 제거한다(§4.1 Dead 컴포넌트 5초 유예 후). 배열은 정렬 상태를 유지한 채 뒤 원소를 당긴다. */
   public void remove(int stableId) {
     int idx = Arrays.binarySearch(stableIds, 0, size, stableId);

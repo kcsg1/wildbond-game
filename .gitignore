@@ -1,0 +1,19 @@
+# Gradle
+build/
+.gradle/
+
+# 하네스 리포트: .md 요약은 히스토리로 남기고, 원시 로그는 추적하지 않는다
+# (CLAUDE.md "reports/는 산출물이며 소스가 아니다")
+reports/**/*.log
+
+# 생성물 — data/build/generated 는 build/ 규칙이 이미 잡는다
+assets/maps/chunks/
+assets/tilesets/placeholder.png
+
+# IDE / OS
+.idea/
+*.iml
+out/
+bin/
+Thumbs.db
+desktop.ini

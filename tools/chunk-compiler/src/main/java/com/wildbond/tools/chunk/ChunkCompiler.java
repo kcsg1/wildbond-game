@@ -8,12 +8,20 @@ import com.wildbond.data.chunk.ChunkFormat;
 import com.wildbond.data.chunk.ChunkObject;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 /**
  * {@link TmxMap} 을 32×32 {@link Chunk} 목록으로 자른다. collision 은 ground 레이어의 타일 GID 를 Tile.csv 의 id 로
- * 바꿔(gid - firstgid + 1) 조회한 값이다. docs/architecture.md §8.2.
+ * 바꿔(gid - firstgid + 1) 조회한 값이고, 그 위에 {@link #BLOCKING_OBJECT_TYPES} 오브젝트가 놓인 타일을 solid 로 덮어쓴다.
+ * docs/architecture.md §8.2.
  */
 final class ChunkCompiler {
+
+  /**
+   * 서 있는 것만으로 길을 막는 오브젝트 — 나무·자원 노드. 지형 타일을 바꾸지 않고 오브젝트만 얹어도 sim 이 막아 주도록, 컴파일 시점에 collision 레이어에
+   * 찍어 둔다. sim 은 타일 충돌만 보므로(§4.1 TileMap) 이렇게 해야 오브젝트가 실제로 벽 노릇을 한다.
+   */
+  private static final Set<String> BLOCKING_OBJECT_TYPES = Set.of("tree", "resource_node");
 
   private ChunkCompiler() {}
 
@@ -60,8 +68,13 @@ final class ChunkCompiler {
 
     List<ChunkObject> objects = new ArrayList<>();
     for (ChunkObject object : map.objects()) {
-      if (belongsToChunk(object, baseTx, baseTy)) {
-        objects.add(object);
+      if (!belongsToChunk(object, baseTx, baseTy)) {
+        continue;
+      }
+      objects.add(object);
+      if (BLOCKING_OBJECT_TYPES.contains(object.type())) {
+        int localIdx = Chunk.indexOf(object.tileX() - baseTx, object.tileY() - baseTy);
+        collision[localIdx] |= (byte) ChunkFormat.collisionBit(TileCollision.SOLID);
       }
     }
 
