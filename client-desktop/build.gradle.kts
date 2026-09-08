@@ -50,4 +50,12 @@ tasks.named<JavaExec>("run") {
         "wildbond.sheet.dungeon",
         rootProject.layout.projectDirectory.file("assets/sprites/kenney_tiny_dungeon.png").asFile.absolutePath,
     )
+    systemProperty(
+        "wildbond.sheet.lpcwalk",
+        rootProject.layout.projectDirectory.file("assets/sprites/lpc_player_walk.png").asFile.absolutePath,
+    )
+    systemProperty(
+        "wildbond.sheet.lpcslash",
+        rootProject.layout.projectDirectory.file("assets/sprites/lpc_player_slash.png").asFile.absolutePath,
+    )
 }

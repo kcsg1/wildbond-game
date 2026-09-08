@@ -27,7 +27,22 @@ public final class PlaceholderSprites implements Disposable {
   public static final int DIR_RIGHT = 2;
   public static final int DIR_LEFT = 3;
 
-  /** 걷기 프레임 수. Kenney 캐릭터는 애니메이션 프레임이 없어서, 1번 프레임은 렌더가 1px 들썩이는 것으로 대신한다. */
+  /**
+   * 플레이어는 LPC(Liberated Pixel Cup) 시트를 쓴다 — 4방향 걷기 9프레임 + 무기 베기 6프레임. Kenney 팩에는 방향·공격 프레임이 아예 없어서
+   * 요청하신 동작을 그릴 그림 자체가 없었다. 출처·저작자는 assets/CREDITS.md.
+   *
+   * <p>두 시트 모두 <b>128×128 프레임</b>으로 합성해 두었다 — 베기는 검이 캐릭터 밖으로 크게 휘둘러지므로 64칸에 안 들어간다. 캐릭터 본체는 프레임
+   * 한가운데 64×64 안에 있고, 발은 프레임 위에서 {@value #LPC_FOOT_FROM_TOP_PX} 픽셀 지점이다.
+   */
+  public static final int LPC_FRAME_PX = 128;
+
+  public static final int LPC_WALK_FRAMES = 9;
+  public static final int LPC_SLASH_FRAMES = 6;
+
+  /** 128 프레임 안에서 발이 닿는 높이. 엔티티 위치(발)에 맞춰 그리려면 이만큼 내려 그린다. */
+  public static final int LPC_FOOT_FROM_TOP_PX = 92;
+
+  /** Kenney 스프라이트(팰·허수아비 등)용 — 애니메이션 프레임이 없어 1px 들썩임으로 대신한다. */
   public static final int WALK_FRAMES = 2;
 
   private static final int SRC = 16;
@@ -69,10 +84,17 @@ public final class PlaceholderSprites implements Disposable {
 
   private final Texture townSheet;
   private final Texture dungeonSheet;
+  private final Texture lpcWalkSheet;
+  private final Texture lpcSlashSheet;
   private final Texture sphereTexture;
   private final Texture shadowTexture;
 
   private final TextureRegion[] playerFrames = new TextureRegion[4];
+
+  /** [방향][프레임] — 방향은 DIR_* 순서(아래/위/오른쪽/왼쪽)로 다시 담는다. */
+  private final TextureRegion[][] lpcWalk = new TextureRegion[4][LPC_WALK_FRAMES];
+
+  private final TextureRegion[][] lpcSlash = new TextureRegion[4][LPC_SLASH_FRAMES];
   private final Map<Integer, TextureRegion> palRegions = new HashMap<>();
   private final TextureRegion treeRegion;
   private final TextureRegion rockRegion;
@@ -83,9 +105,14 @@ public final class PlaceholderSprites implements Disposable {
   private final TextureRegion sphereRegion;
   private final TextureRegion shadowRegion;
 
-  public PlaceholderSprites(Path tinyTownSheet, Path tinyDungeonSheet) {
+  public PlaceholderSprites(
+      Path tinyTownSheet, Path tinyDungeonSheet, Path lpcWalk, Path lpcSlash) {
     townSheet = loadSheet(tinyTownSheet);
     dungeonSheet = loadSheet(tinyDungeonSheet);
+    lpcWalkSheet = loadSheet(lpcWalk);
+    lpcSlashSheet = loadSheet(lpcSlash);
+    sliceLpc(lpcWalkSheet, this.lpcWalk, LPC_WALK_FRAMES);
+    sliceLpc(lpcSlashSheet, this.lpcSlash, LPC_SLASH_FRAMES);
 
     TextureRegion front = tile(dungeonSheet, PLAYER_TILE);
     playerFrames[DIR_DOWN] = front;
@@ -106,6 +133,34 @@ public final class PlaceholderSprites implements Disposable {
     sphereRegion = region(sphereTexture, 0, 0, SPHERE_PX, SPHERE_PX);
     shadowTexture = buildShadow();
     shadowRegion = region(shadowTexture, 0, 0, SHADOW_PX, SHADOW_PX);
+  }
+
+  /** LPC 시트의 행 순서는 위/왼쪽/아래/오른쪽이다. 이 클래스의 DIR_* 순서(아래/위/오른쪽/왼쪽)로 옮겨 담아, 쓰는 쪽이 LPC 관례를 몰라도 되게 한다. */
+  private static void sliceLpc(Texture sheet, TextureRegion[][] out, int frames) {
+    int[] lpcRowForDir = {2, 0, 3, 1}; // DOWN, UP, RIGHT, LEFT
+    for (int dir = 0; dir < 4; dir++) {
+      for (int f = 0; f < frames; f++) {
+        out[dir][f] =
+            region(
+                sheet,
+                f * LPC_FRAME_PX,
+                lpcRowForDir[dir] * LPC_FRAME_PX,
+                LPC_FRAME_PX,
+                LPC_FRAME_PX);
+      }
+    }
+  }
+
+  /** 걷기 프레임 (정지 상태는 0번). */
+  public TextureRegion playerWalk(int direction, int frame) {
+    int dir = direction < 0 || direction > 3 ? DIR_DOWN : direction;
+    return lpcWalk[dir][Math.floorMod(frame, LPC_WALK_FRAMES)];
+  }
+
+  /** 무기 휘두르기 프레임. */
+  public TextureRegion playerSlash(int direction, int frame) {
+    int dir = direction < 0 || direction > 3 ? DIR_DOWN : direction;
+    return lpcSlash[dir][Math.min(LPC_SLASH_FRAMES - 1, Math.max(0, frame))];
   }
 
   private static Texture loadSheet(Path file) {
@@ -219,6 +274,8 @@ public final class PlaceholderSprites implements Disposable {
   public void dispose() {
     townSheet.dispose();
     dungeonSheet.dispose();
+    lpcWalkSheet.dispose();
+    lpcSlashSheet.dispose();
     sphereTexture.dispose();
     shadowTexture.dispose();
     palRegions.clear();

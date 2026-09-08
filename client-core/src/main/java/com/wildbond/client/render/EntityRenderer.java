@@ -32,6 +32,9 @@ public final class EntityRenderer implements Disposable {
   /** 걷기 프레임 하나가 유지되는 시간. */
   private static final float WALK_FRAME_SECONDS = 0.16f;
 
+  /** 무기 휘두르기 한 번의 길이 — 6프레임을 이 시간에 나눠 재생한다. */
+  private static final float SLASH_SECONDS = 0.36f;
+
   /** 피격 3프레임 동안 입히는 붉은 틴트 (단계 6 의 "흰 텍스처로 교체"를 스프라이트에 맞게 바꾼 것). */
   private static final Color HIT_TINT = new Color(1f, 0.45f, 0.45f, 1f);
 
@@ -47,6 +50,9 @@ public final class EntityRenderer implements Disposable {
   private final Map<Integer, Integer> facing = new HashMap<>();
 
   private final Map<Integer, Float> walkTimer = new HashMap<>();
+
+  /** 휘두르는 중인 엔티티의 남은 시간. 없으면 평상시. */
+  private final Map<Integer, Float> slashTimer = new HashMap<>();
 
   private int lastRenderCalls;
   private float coinBobPhase;
@@ -80,6 +86,7 @@ public final class EntityRenderer implements Disposable {
       HitEffects hitEffects,
       CaptureEffects captureEffects) {
     coinBobPhase += deltaSeconds * 4f;
+    advanceSlashTimers(deltaSeconds);
     sortBuffer.clear();
     sortBuffer.addAll(viewState.current());
     sortBuffer.sort(Comparator.comparingDouble(ViewState.Snapshot::y));
@@ -170,6 +177,16 @@ public final class EntityRenderer implements Disposable {
     }
   }
 
+  /** 무기를 휘두르기 시작한다. PlayScreen 이 스페이스바를 감지한 그 프레임에 부른다 — sim 은 공격 연출을 모른다(§6 규칙 3). */
+  public void startSlash(int entityId) {
+    slashTimer.put(entityId, SLASH_SECONDS);
+  }
+
+  /** 휘두르는 중인가 — 그동안은 걷기 대신 베기 프레임을 그린다. */
+  public boolean isSlashing(int entityId) {
+    return slashTimer.getOrDefault(entityId, 0f) > 0f;
+  }
+
   /**
    * 이번 틱의 이동량으로 방향을 갱신하고 걷기 프레임을 돌린다. 멈춰 있으면 0번 프레임(정지)으로 되돌린다.
    *
@@ -189,7 +206,20 @@ public final class EntityRenderer implements Disposable {
     }
     float timer = walkTimer.getOrDefault(entityId, 0f) + deltaSeconds;
     walkTimer.put(entityId, timer);
-    return (int) (timer / WALK_FRAME_SECONDS) % PlaceholderSprites.WALK_FRAMES;
+    return (int) (timer / WALK_FRAME_SECONDS) % PlaceholderSprites.LPC_WALK_FRAMES;
+  }
+
+  private void advanceSlashTimers(float deltaSeconds) {
+    Iterator<Map.Entry<Integer, Float>> it = slashTimer.entrySet().iterator();
+    while (it.hasNext()) {
+      Map.Entry<Integer, Float> entry = it.next();
+      float remaining = entry.getValue() - deltaSeconds;
+      if (remaining <= 0f) {
+        it.remove();
+      } else {
+        entry.setValue(remaining);
+      }
+    }
   }
 
   /** 사라진 엔티티의 방향·타이머를 흘려보낸다 — 팰이 계속 스폰·회수되므로 놔두면 맵이 자란다. */
@@ -200,6 +230,7 @@ public final class EntityRenderer implements Disposable {
       if (viewState.snapshot(id) == null) {
         it.remove();
         walkTimer.remove(id);
+        slashTimer.remove(id);
       }
     }
   }
@@ -213,18 +244,7 @@ public final class EntityRenderer implements Disposable {
       int frame,
       CaptureEffects captureEffects) {
     switch (snapshot.kind()) {
-      case PLAYER -> {
-        int dir = facing.getOrDefault(snapshot.id(), PlaceholderSprites.DIR_DOWN);
-        // Kenney 캐릭터에는 걷기 프레임이 없다 — 1번 프레임에 1px 들썩여 걷는 느낌만 준다.
-        float bob = frame == 1 ? -1f : 0f;
-        drawSprite(
-            batch,
-            sprites.player(dir, frame),
-            anchorX,
-            anchorY + bob,
-            PlaceholderSprites.CHARACTER_PX,
-            PlaceholderSprites.CHARACTER_PX);
-      }
+      case PLAYER -> drawPlayer(batch, snapshot.id(), anchorX, anchorY, frame);
       case DUMMY ->
           drawSprite(
               batch,
@@ -261,6 +281,29 @@ public final class EntityRenderer implements Disposable {
         // 렌더가 모르는 종류는 그리지 않는다.
       }
     }
+  }
+
+  /**
+   * 플레이어 — LPC 시트로 4방향 걷기와 무기 휘두르기를 그린다.
+   *
+   * <p>프레임이 128×128 이고 그 안에서 발이 {@value PlaceholderSprites#LPC_FOOT_FROM_TOP_PX} 픽셀 지점이라, 엔티티
+   * 위치(발)에 맞추려면 프레임 아래쪽을 그만큼 더 내려서 그려야 한다.
+   */
+  private void drawPlayer(
+      SpriteBatch batch, int entityId, float anchorX, float anchorY, int frame) {
+    int dir = facing.getOrDefault(entityId, PlaceholderSprites.DIR_DOWN);
+    int size = PlaceholderSprites.LPC_FRAME_PX;
+    float bottom = anchorY + (size - PlaceholderSprites.LPC_FOOT_FROM_TOP_PX);
+
+    TextureRegion region;
+    if (isSlashing(entityId)) {
+      float progress = 1f - slashTimer.getOrDefault(entityId, 0f) / SLASH_SECONDS;
+      int slashFrame = (int) (progress * PlaceholderSprites.LPC_SLASH_FRAMES);
+      region = sprites.playerSlash(dir, slashFrame);
+    } else {
+      region = sprites.playerWalk(dir, frame);
+    }
+    drawSprite(batch, region, anchorX, bottom, size, size);
   }
 
   /** 몬스터 머리 위 HP 바 — 다치지 않았으면 그리지 않는다(화면이 바로 지저분해진다). */

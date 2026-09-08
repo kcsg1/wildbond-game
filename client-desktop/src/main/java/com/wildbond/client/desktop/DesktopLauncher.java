@@ -20,7 +20,9 @@ public final class DesktopLauncher {
             resolvePath("wildbond.chunks", "assets/maps/chunks"),
             resolvePath("wildbond.tileset", "assets/tilesets/placeholder.png"),
             resolvePath("wildbond.sheet.town", "assets/tilesets/kenney_tiny_town.png"),
-            resolvePath("wildbond.sheet.dungeon", "assets/sprites/kenney_tiny_dungeon.png"));
+            resolvePath("wildbond.sheet.dungeon", "assets/sprites/kenney_tiny_dungeon.png"),
+            resolvePath("wildbond.sheet.lpcwalk", "assets/sprites/lpc_player_walk.png"),
+            resolvePath("wildbond.sheet.lpcslash", "assets/sprites/lpc_player_slash.png"));
 
     Lwjgl3ApplicationConfiguration appConfig = new Lwjgl3ApplicationConfiguration();
     appConfig.setTitle("Wildbond");

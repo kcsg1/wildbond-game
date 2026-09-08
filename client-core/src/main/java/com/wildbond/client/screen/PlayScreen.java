@@ -83,7 +83,12 @@ public final class PlayScreen implements Screen {
     this.viewState = viewState;
     this.zoneRuntime = zoneRuntime;
     this.tileset = tileset;
-    this.sprites = new PlaceholderSprites(config.tinyTownSheet(), config.tinyDungeonSheet());
+    this.sprites =
+        new PlaceholderSprites(
+            config.tinyTownSheet(),
+            config.tinyDungeonSheet(),
+            config.lpcWalkSheet(),
+            config.lpcSlashSheet());
     this.entityRenderer = new EntityRenderer(gameData, sprites);
     this.debugOverlay = new DebugOverlay();
     this.hitEffects = hitEffects;
@@ -216,8 +221,9 @@ public final class PlayScreen implements Screen {
    */
   private void handleAimedInput(float playerX, float playerY) {
     if (Gdx.input.isKeyJustPressed(Input.Keys.SPACE)) {
-      // 스페이스바는 마우스가 아니라 바라보는 방향으로 친다.
+      // 스페이스바는 마우스가 아니라 바라보는 방향으로 친다. 휘두르는 연출도 같이 시작한다.
       inputMapper.queueMeleeSkill(entityRenderer.facingAngle(playerId));
+      entityRenderer.startSlash(playerId);
     }
     if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
       queueAimed(inputMapper::queueMeleeSkill, playerX, playerY);
