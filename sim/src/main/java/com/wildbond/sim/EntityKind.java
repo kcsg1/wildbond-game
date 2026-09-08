@@ -7,6 +7,8 @@ public enum EntityKind {
   PAL,
   /** 날아가는 포획구 — 렌더는 그림자와 가상 높이({@link SimView#renderZ})로 그린다. */
   SPHERE,
+  /** 바닥에 떨어진 전리품(동전). 플레이어가 다가가면 사라진다. */
+  DROP,
   DUMMY,
   UNKNOWN
 }

@@ -5,8 +5,12 @@ import com.artemis.ComponentMapper;
 import com.wildbond.data.GameData;
 import com.wildbond.data.PalSpecies;
 import com.wildbond.data.TileCollision;
+import com.wildbond.data.chunk.Chunk;
+import com.wildbond.data.chunk.ChunkCoord;
 import com.wildbond.data.chunk.ChunkFormat;
+import com.wildbond.data.chunk.ChunkObject;
 import com.wildbond.sim.Rng;
+import com.wildbond.sim.SpawnRules;
 import com.wildbond.sim.TileMap;
 import com.wildbond.sim.components.Owner;
 import com.wildbond.sim.components.PalData;
@@ -37,6 +41,10 @@ public final class SpawnSystem extends BaseSystem {
   private final GameData gameData;
   private final Rng rng;
   private final EventBus eventBus;
+  private final SpawnRules rules;
+
+  /** 존이 스폰 포인트를 쓸 때(굴) 필요한 청크 조회. 없으면 walkable 타일에서 고른다. */
+  private final java.util.function.Function<ChunkCoord, Chunk> chunkLoader;
 
   private PalFactory palFactory;
   private ComponentMapper<Position> mPosition;
@@ -60,12 +68,20 @@ public final class SpawnSystem extends BaseSystem {
   private final List<Integer> despawnScratch = new ArrayList<>();
 
   public SpawnSystem(
-      EntityIndex index, TileMap tileMap, GameData gameData, Rng rng, EventBus eventBus) {
+      EntityIndex index,
+      TileMap tileMap,
+      GameData gameData,
+      Rng rng,
+      EventBus eventBus,
+      SpawnRules rules,
+      java.util.function.Function<ChunkCoord, Chunk> chunkLoader) {
     this.index = index;
     this.tileMap = tileMap;
     this.gameData = gameData;
     this.rng = rng;
     this.eventBus = eventBus;
+    this.rules = rules;
+    this.chunkLoader = chunkLoader;
   }
 
   @Override
@@ -77,17 +93,21 @@ public final class SpawnSystem extends BaseSystem {
     mSpawnOrigin = world.getMapper(SpawnOrigin.class);
     palFactory = new PalFactory(world, index, gameData, eventBus);
 
-    List<PalSpecies> all = new ArrayList<>(gameData.allPalSpecies());
-    all.sort((a, b) -> Integer.compare(a.id(), b.id()));
-    speciesIds = new int[all.size()];
-    for (int i = 0; i < all.size(); i++) {
-      speciesIds[i] = all.get(i).id();
+    if (rules.speciesIds().length > 0) {
+      speciesIds = rules.speciesIds().clone(); // 존이 정한 종만 나온다 (D-16)
+    } else {
+      List<PalSpecies> all = new ArrayList<>(gameData.allPalSpecies());
+      all.sort((a, b) -> Integer.compare(a.id(), b.id()));
+      speciesIds = new int[all.size()];
+      for (int i = 0; i < all.size(); i++) {
+        speciesIds[i] = all.get(i).id();
+      }
     }
   }
 
   @Override
   protected void processSystem() {
-    if (speciesIds.length == 0) {
+    if (!rules.enabled() || speciesIds.length == 0) {
       return;
     }
     int playerArtemisId = findPlayer();
@@ -167,7 +187,7 @@ public final class SpawnSystem extends BaseSystem {
     int speciesId = speciesIds[rng.nextInt(Rng.Stream.SPAWN, speciesIds.length)];
     int levelSpan = PalConstants.MAX_PAL_LEVEL - PalConstants.MIN_PAL_LEVEL + 1;
 
-    for (int i = 0; i < PalConstants.PALS_PER_CHUNK && candidates > 0; i++) {
+    for (int i = 0; i < rules.palsPerChunk() && candidates > 0; i++) {
       int pick = rng.nextInt(Rng.Stream.SPAWN, candidates);
       int tileX = candidateTx[pick];
       int tileY = candidateTy[pick];
@@ -182,13 +202,15 @@ public final class SpawnSystem extends BaseSystem {
     }
   }
 
-  /** 청크 안에서 walkable 이고 플레이어에서 충분히 떨어진 타일을 모은다. */
+  /** 청크 안의 스폰 후보 타일을 모은다. 존이 스폰 포인트를 쓰면(굴) 오브젝트로 찍어 둔 자리만, 아니면 walkable 타일 전체에서 고른다. */
   private int collectSpawnableTiles(int chunkX, int chunkY, int playerTx, int playerTy) {
+    if (rules.useSpawnPoints()) {
+      return collectSpawnPoints(chunkX, chunkY);
+    }
     int count = 0;
     int baseTx = chunkX * ChunkFormat.SIZE;
     int baseTy = chunkY * ChunkFormat.SIZE;
-    int minDistanceSquared =
-        PalConstants.MIN_SPAWN_DISTANCE_TILES * PalConstants.MIN_SPAWN_DISTANCE_TILES;
+    int minDistanceSquared = rules.minDistanceTiles() * rules.minDistanceTiles();
 
     for (int localTy = 0; localTy < ChunkFormat.SIZE; localTy++) {
       for (int localTx = 0; localTx < ChunkFormat.SIZE; localTx++) {
@@ -206,6 +228,27 @@ public final class SpawnSystem extends BaseSystem {
         candidateTy[count] = tileY;
         count++;
       }
+    }
+    return count;
+  }
+
+  /** 맵에 찍어 둔 {@code spawn_point} 오브젝트 자리만 모은다. 굴처럼 "방 안에만" 두고 싶을 때 쓴다. */
+  private int collectSpawnPoints(int chunkX, int chunkY) {
+    if (chunkLoader == null) {
+      return 0;
+    }
+    Chunk chunk = chunkLoader.apply(new ChunkCoord(chunkX, chunkY));
+    if (chunk == null) {
+      return 0;
+    }
+    int count = 0;
+    for (ChunkObject object : chunk.objects()) {
+      if (!"spawn_point".equals(object.type()) || count >= candidateTx.length) {
+        continue;
+      }
+      candidateTx[count] = object.tileX();
+      candidateTy[count] = object.tileY();
+      count++;
     }
     return count;
   }

@@ -30,7 +30,7 @@ public final class InputMapper {
     this.controlledEntityId = stableId;
   }
 
-  /** PlayScreen 이 실제 렌더 프레임마다(고정 틱과 별개로) 좌클릭을 감지했을 때 호출한다. */
+  /** 스페이스바 또는 좌클릭 근접 공격 (docs/architecture.md D-17). */
   public void queueMeleeSkill(int aimAngle) {
     meleePending = true;
     meleeAimAngle = aimAngle;

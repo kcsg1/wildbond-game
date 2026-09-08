@@ -21,7 +21,13 @@ final class ChunkCompiler {
    * 서 있는 것만으로 길을 막는 오브젝트 — 나무·자원 노드. 지형 타일을 바꾸지 않고 오브젝트만 얹어도 sim 이 막아 주도록, 컴파일 시점에 collision 레이어에
    * 찍어 둔다. sim 은 타일 충돌만 보므로(§4.1 TileMap) 이렇게 해야 오브젝트가 실제로 벽 노릇을 한다.
    */
-  private static final Set<String> BLOCKING_OBJECT_TYPES = Set.of("tree", "resource_node");
+  private static final Set<String> BLOCKING_OBJECT_TYPES =
+      Set.of("tree", "resource_node", "fence", "house", "house_red");
+
+  /** 집은 앵커 타일 하나가 아니라 3×4 칸을 차지한다 (앵커 = 왼쪽 아래). */
+  private static final int HOUSE_W = 3;
+
+  private static final int HOUSE_H = 4;
 
   private ChunkCompiler() {}
 
@@ -73,12 +79,34 @@ final class ChunkCompiler {
       }
       objects.add(object);
       if (BLOCKING_OBJECT_TYPES.contains(object.type())) {
-        int localIdx = Chunk.indexOf(object.tileX() - baseTx, object.tileY() - baseTy);
-        collision[localIdx] |= (byte) ChunkFormat.collisionBit(TileCollision.SOLID);
+        stampSolid(collision, object, baseTx, baseTy);
       }
     }
 
     return new Chunk(new ChunkCoord(ccx, ccy), ground, detail, collision, objects);
+  }
+
+  /** 오브젝트가 차지하는 칸 전부를 solid 로 찍는다. 청크 밖으로 삐져나간 칸은 그 청크가 자기 몫으로 다시 찍는다. */
+  private static void stampSolid(byte[] collision, ChunkObject object, int baseTx, int baseTy) {
+    boolean house = object.type().startsWith("house");
+    int width = house ? HOUSE_W : 1;
+    int height = house ? HOUSE_H : 1;
+    // 집 앵커는 왼쪽 아래 칸이라 위로 h-1 칸 올라간다.
+    int originTy = house ? object.tileY() - (HOUSE_H - 1) : object.tileY();
+    for (int dy = 0; dy < height; dy++) {
+      for (int dx = 0; dx < width; dx++) {
+        int localTx = object.tileX() + dx - baseTx;
+        int localTy = originTy + dy - baseTy;
+        if (localTx < 0
+            || localTy < 0
+            || localTx >= ChunkFormat.SIZE
+            || localTy >= ChunkFormat.SIZE) {
+          continue;
+        }
+        collision[Chunk.indexOf(localTx, localTy)] |=
+            (byte) ChunkFormat.collisionBit(TileCollision.SOLID);
+      }
+    }
   }
 
   private static boolean belongsToChunk(ChunkObject object, int baseTx, int baseTy) {

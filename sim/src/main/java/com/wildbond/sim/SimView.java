@@ -39,6 +39,20 @@ public interface SimView {
   /** 지면 위로 뜬 가상 높이(포획구 포물선). 대부분의 엔티티는 0 (§3.2). */
   float renderZ(int stableId);
 
+  /** Mana 컴포넌트가 없으면 -1 (§3.1 Player "HP/MP"). */
+  int mana(int stableId);
+
+  int maxMana(int stableId);
+
+  /** 소지금. Wallet 컴포넌트가 없으면 -1. */
+  int coins(int stableId);
+
+  /** 떨어진 전리품이면 수량, 아니면 -1. */
+  int dropAmount(int stableId);
+
+  /** 쓰러지는 연출 진행도 0..1. 살아 있으면 0 — 렌더가 기울이거나 흐리게 하는 데 쓴다. */
+  float deathProgress(int stableId);
+
   /** 플레이어 파티의 slot 번째 팰 EntityId. 비었으면 -1. */
   int partyEntityId(int slot);
 

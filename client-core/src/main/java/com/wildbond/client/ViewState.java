@@ -25,6 +25,11 @@ public final class ViewState {
     private int maxHp;
     private int speciesId;
     private int ownerId;
+    private int mp;
+    private int maxMp;
+    private int coins;
+    private int dropAmount;
+    private float deathProgress;
 
     public int id() {
       return id;
@@ -64,6 +69,29 @@ public final class ViewState {
     public int ownerId() {
       return ownerId;
     }
+
+    public int mp() {
+      return mp;
+    }
+
+    public int maxMp() {
+      return maxMp;
+    }
+
+    /** 소지금 (플레이어만). 없으면 -1. */
+    public int coins() {
+      return coins;
+    }
+
+    /** 떨어진 전리품이면 수량, 아니면 -1. */
+    public int dropAmount() {
+      return dropAmount;
+    }
+
+    /** 쓰러지는 연출 진행도 0..1. */
+    public float deathProgress() {
+      return deathProgress;
+    }
   }
 
   private Map<Integer, Snapshot> prev = new LinkedHashMap<>();
@@ -92,6 +120,11 @@ public final class ViewState {
       snapshot.maxHp = view.maxHealth(id);
       snapshot.speciesId = view.speciesId(id);
       snapshot.ownerId = view.ownerId(id);
+      snapshot.mp = view.mana(id);
+      snapshot.maxMp = view.maxMana(id);
+      snapshot.coins = view.coins(id);
+      snapshot.dropAmount = view.dropAmount(id);
+      snapshot.deathProgress = view.deathProgress(id);
       cur.put(id, snapshot);
     }
 

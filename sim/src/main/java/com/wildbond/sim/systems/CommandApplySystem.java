@@ -15,11 +15,13 @@ import com.wildbond.sim.components.DummyTag;
 import com.wildbond.sim.components.ElementComponent;
 import com.wildbond.sim.components.EntityIdComponent;
 import com.wildbond.sim.components.Health;
+import com.wildbond.sim.components.Mana;
 import com.wildbond.sim.components.PlayerTag;
 import com.wildbond.sim.components.Position;
 import com.wildbond.sim.components.Skills;
 import com.wildbond.sim.components.Stats;
 import com.wildbond.sim.components.Velocity;
+import com.wildbond.sim.components.Wallet;
 import com.wildbond.sim.events.EntitySpawned;
 import com.wildbond.sim.events.EventBus;
 import java.util.List;
@@ -138,6 +140,12 @@ public final class CommandApplySystem extends BaseSystem {
     Skills skills = edit.create(Skills.class);
     skills.skillIds = CombatConstants.PLAYER_SKILL_IDS.clone();
     skills.cooldownRemainingTicks = new int[CombatConstants.PLAYER_SKILL_IDS.length];
+
+    Mana mana = edit.create(Mana.class);
+    mana.current = CombatConstants.PLAYER_MAX_MP;
+    mana.max = CombatConstants.PLAYER_MAX_MP;
+
+    edit.create(Wallet.class);
 
     // 파티 팰이 "주인이 공격한 대상"을 읽어 함께 싸운다 (docs/m0-prompts.md 단계7).
     edit.create(CombatMemory.class);

@@ -38,6 +38,13 @@ public final class PlaceholderSprites implements Disposable {
   public static final int PAL_LARGE_PX = 64;
   public static final int TREE_W = 32;
   public static final int TREE_H = 64;
+
+  /** 집은 3×4 타일 — 시트에서 3열 4행을 통째로 잘라 쓴다. */
+  public static final int HOUSE_TILES_W = 3;
+
+  public static final int HOUSE_TILES_H = 4;
+  public static final int HOUSE_W = HOUSE_TILES_W * 32;
+  public static final int HOUSE_H = HOUSE_TILES_H * 32;
   private static final int SPHERE_PX = 12;
   private static final int SHADOW_PX = 10;
 
@@ -56,6 +63,9 @@ public final class PlaceholderSprites implements Disposable {
   private static final int[] TREE_TILE = {4, 0}; // 세로 2칸짜리 소나무 (4,0)+(4,1)
   private static final int[] ROCK_TILE = {7, 3}; // 돌이 박힌 땅 — 자원 노드
   private static final int[] DUMMY_TILE = {11, 7}; // 과녁 — 단계 6 허수아비
+  private static final int[] HOUSE_BLUE_TILE = {0, 4}; // 파란 지붕 집 (3×4)
+  private static final int[] HOUSE_RED_TILE = {4, 4}; // 붉은 지붕 집 (3×4)
+  private static final int[] FENCE_TILE = {9, 6}; // 나무 울타리 가로대
 
   private final Texture townSheet;
   private final Texture dungeonSheet;
@@ -67,6 +77,9 @@ public final class PlaceholderSprites implements Disposable {
   private final TextureRegion treeRegion;
   private final TextureRegion rockRegion;
   private final TextureRegion dummyRegion;
+  private final TextureRegion houseBlueRegion;
+  private final TextureRegion houseRedRegion;
+  private final TextureRegion fenceRegion;
   private final TextureRegion sphereRegion;
   private final TextureRegion shadowRegion;
 
@@ -85,6 +98,9 @@ public final class PlaceholderSprites implements Disposable {
     treeRegion = region(townSheet, TREE_TILE[0] * SRC, TREE_TILE[1] * SRC, SRC, SRC * 2);
     rockRegion = tile(townSheet, ROCK_TILE);
     dummyRegion = tile(townSheet, DUMMY_TILE);
+    houseBlueRegion = houseRegion(HOUSE_BLUE_TILE);
+    houseRedRegion = houseRegion(HOUSE_RED_TILE);
+    fenceRegion = tile(townSheet, FENCE_TILE);
 
     sphereTexture = buildSphere();
     sphereRegion = region(sphereTexture, 0, 0, SPHERE_PX, SPHERE_PX);
@@ -121,6 +137,20 @@ public final class PlaceholderSprites implements Disposable {
 
   public TextureRegion dummy() {
     return dummyRegion;
+  }
+
+  /** 마을 집 — 지붕 색 두 가지. 3×4 타일이라 앵커(왼쪽 아래 칸) 기준으로 가운데를 맞춰 그려야 한다. */
+  public TextureRegion house(boolean red) {
+    return red ? houseRedRegion : houseBlueRegion;
+  }
+
+  public TextureRegion fence() {
+    return fenceRegion;
+  }
+
+  private TextureRegion houseRegion(int[] colRow) {
+    return region(
+        townSheet, colRow[0] * SRC, colRow[1] * SRC, HOUSE_TILES_W * SRC, HOUSE_TILES_H * SRC);
   }
 
   public TextureRegion sphere() {

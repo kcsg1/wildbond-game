@@ -11,6 +11,14 @@ public final class CombatConstants {
   public static final int PLAYER_DEF = 20;
   public static final int PLAYER_LEVEL = 1;
 
+  /** §3.1 Player "HP/MP". 근접 기본 공격은 0, 원거리 스킬만 MP 를 쓴다. */
+  public static final int PLAYER_MAX_MP = 50;
+
+  public static final int RANGED_SKILL_MP_COST = 5;
+
+  /** 초당 회복량 — 틱마다 조금씩 찬다. */
+  public static final float MP_REGEN_PER_SECOND = 2f;
+
   /**
    * 플레이어가 스폰 시 아는 스킬 — 좌클릭(근접)=skill.slash(id 1), 우클릭(원거리)=skill.ember(id 3, fire)
    * (data/tables/Skill.csv). skill.arrow(id 2, 무속성)는 M0 기본 로드아웃에서는 쓰지 않는다 — ember 를 대신 골라 속성

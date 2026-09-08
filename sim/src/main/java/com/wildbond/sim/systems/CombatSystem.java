@@ -19,6 +19,7 @@ import com.wildbond.sim.components.Dead;
 import com.wildbond.sim.components.ElementComponent;
 import com.wildbond.sim.components.EntityIdComponent;
 import com.wildbond.sim.components.Health;
+import com.wildbond.sim.components.Mana;
 import com.wildbond.sim.components.Owner;
 import com.wildbond.sim.components.PalData;
 import com.wildbond.sim.components.PalState;
@@ -69,6 +70,10 @@ public final class CombatSystem extends BaseSystem {
   private ComponentMapper<PlayerTag> mPlayer;
   private ComponentMapper<Owner> mOwner;
   private ComponentMapper<PalData> mPal;
+  private ComponentMapper<Mana> mMana;
+  private ComponentMapper<com.wildbond.sim.components.DeathAnim> mDeathAnim;
+
+  private float manaRegenCarry;
 
   private int[] projectileIds = new int[8];
   private int projectileCount;
@@ -123,10 +128,13 @@ public final class CombatSystem extends BaseSystem {
     mPlayer = world.getMapper(PlayerTag.class);
     mOwner = world.getMapper(Owner.class);
     mPal = world.getMapper(PalData.class);
+    mMana = world.getMapper(Mana.class);
+    mDeathAnim = world.getMapper(com.wildbond.sim.components.DeathAnim.class);
   }
 
   @Override
   protected void processSystem() {
+    regenerateMana();
     tickCooldowns();
     moveProjectiles();
 
@@ -144,6 +152,25 @@ public final class CombatSystem extends BaseSystem {
     aiRequestCount = 0;
 
     processDeaths();
+  }
+
+  /** MP 는 매 틱 조금씩 찬다 — 정수 컴포넌트라 소수점 누적분을 따로 들고 있는다. */
+  private void regenerateMana() {
+    manaRegenCarry += CombatConstants.MP_REGEN_PER_SECOND * Ticks.DT_SECONDS;
+    int whole = (int) manaRegenCarry;
+    if (whole <= 0) {
+      return;
+    }
+    manaRegenCarry -= whole;
+    int n = index.size();
+    for (int i = 0; i < n; i++) {
+      int artemisId = index.artemisIdAt(i);
+      if (!mMana.has(artemisId)) {
+        continue;
+      }
+      Mana mana = mMana.get(artemisId);
+      mana.current = Math.min(mana.max, mana.current + whole);
+    }
   }
 
   private void tickCooldowns() {
@@ -174,6 +201,13 @@ public final class CombatSystem extends BaseSystem {
     }
 
     Skill skill = gameData.skill(skillId);
+    int manaCost = manaCostOf(skill);
+    if (manaCost > 0) {
+      if (!mMana.has(casterArtemisId) || mMana.get(casterArtemisId).current < manaCost) {
+        return; // MP 부족 — 쿨다운도 돌리지 않는다.
+      }
+      mMana.get(casterArtemisId).current -= manaCost;
+    }
     skills.cooldownRemainingTicks[slot] = skill.cooldownTicks();
 
     Position casterPos = mPosition.get(casterArtemisId);
@@ -186,6 +220,11 @@ public final class CombatSystem extends BaseSystem {
     } else {
       resolveMeleeHit(casterArtemisId, casterPos, skill, cosT, sinT);
     }
+  }
+
+  /** 근접 기본 공격은 무료, 투사체 스킬만 MP 를 먹는다 (D-17 이후의 조작 감각에 맞춘 것). */
+  private static int manaCostOf(Skill skill) {
+    return skill.hitShape() == HitShape.PROJECTILE ? CombatConstants.RANGED_SKILL_MP_COST : 0;
   }
 
   private static int indexOfSkill(Skills skills, int skillId) {
@@ -304,6 +343,10 @@ public final class CombatSystem extends BaseSystem {
     if (health.current <= 0 && !mDead.has(targetArtemisId)) {
       Dead dead = world.edit(targetArtemisId).create(Dead.class);
       dead.ticksRemaining = CombatConstants.DEAD_REMOVE_TICKS;
+      com.wildbond.sim.components.DeathAnim anim =
+          world.edit(targetArtemisId).create(com.wildbond.sim.components.DeathAnim.class);
+      anim.totalTicks = CombatConstants.DEAD_REMOVE_TICKS;
+      anim.elapsedTicks = 0;
       eventBus.enqueue(new Died(targetStableId));
     }
   }
@@ -417,6 +460,9 @@ public final class CombatSystem extends BaseSystem {
       }
       Dead dead = mDead.get(artemisId);
       dead.ticksRemaining--;
+      if (mDeathAnim.has(artemisId)) {
+        mDeathAnim.get(artemisId).elapsedTicks++;
+      }
       if (dead.ticksRemaining <= 0) {
         int stableId = index.stableIdAt(i);
         world.delete(artemisId);

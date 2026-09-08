@@ -4,11 +4,14 @@ import com.artemis.World;
 import com.artemis.WorldConfiguration;
 import com.artemis.WorldConfigurationBuilder;
 import com.wildbond.data.GameData;
+import com.wildbond.data.chunk.Chunk;
+import com.wildbond.data.chunk.ChunkCoord;
 import com.wildbond.sim.events.EventBus;
 import com.wildbond.sim.systems.AiSystem;
 import com.wildbond.sim.systems.CaptureSystem;
 import com.wildbond.sim.systems.CombatSystem;
 import com.wildbond.sim.systems.CommandApplySystem;
+import com.wildbond.sim.systems.DropSystem;
 import com.wildbond.sim.systems.EntityIndex;
 import com.wildbond.sim.systems.EntityQueries;
 import com.wildbond.sim.systems.EventFlushSystem;
@@ -18,6 +21,7 @@ import com.wildbond.sim.systems.Pathfinder;
 import com.wildbond.sim.systems.SimClock;
 import com.wildbond.sim.systems.SpawnSystem;
 import java.util.List;
+import java.util.function.Function;
 
 /**
  * sim 의 유일한 진입점 (docs/architecture.md §4). {@link #step} 하나로만 상태가 바뀐다.
@@ -44,7 +48,20 @@ public final class Sim implements SimView {
 
   private int tick;
 
+  /** 존 설정 없이 만드는 편의 생성자 — 테스트·벤치가 쓴다. 모든 종이 나오는 기본 규칙이다. */
   public Sim(GameData gameData, TileMap tileMap, long seed) {
+    this(gameData, tileMap, seed, DEFAULT_SPAWN_RULES, null);
+  }
+
+  /** M0 기본 스폰 규칙 — 존을 지정하지 않으면 이 값이 쓰인다(단계 7까지의 동작 그대로). */
+  private static final SpawnRules DEFAULT_SPAWN_RULES = new SpawnRules(new int[0], 3, 24, false);
+
+  public Sim(
+      GameData gameData,
+      TileMap tileMap,
+      long seed,
+      SpawnRules spawnRules,
+      Function<ChunkCoord, Chunk> chunkLoader) {
     this.gameData = gameData;
     this.seed = seed;
     this.rng = new Rng(seed);
@@ -60,7 +77,9 @@ public final class Sim implements SimView {
     PathFollowSystem pathFollowSystem = new PathFollowSystem(index);
     MovementSystem movementSystem = new MovementSystem(index, tileMap, eventBus);
     this.captureSystem = new CaptureSystem(index, gameData, eventBus, rng, clock);
-    SpawnSystem spawnSystem = new SpawnSystem(index, tileMap, gameData, rng, eventBus);
+    SpawnSystem spawnSystem =
+        new SpawnSystem(index, tileMap, gameData, rng, eventBus, spawnRules, chunkLoader);
+    DropSystem dropSystem = new DropSystem(index, gameData, eventBus, rng);
     EventFlushSystem eventFlushSystem = new EventFlushSystem(eventBus);
 
     WorldConfiguration config =
@@ -72,6 +91,7 @@ public final class Sim implements SimView {
                 movementSystem,
                 combatSystem,
                 captureSystem,
+                dropSystem,
                 spawnSystem,
                 eventFlushSystem)
             .build();
@@ -160,6 +180,31 @@ public final class Sim implements SimView {
   @Override
   public float renderZ(int stableId) {
     return queries.renderZ(stableId);
+  }
+
+  @Override
+  public int mana(int stableId) {
+    return queries.mana(stableId);
+  }
+
+  @Override
+  public int maxMana(int stableId) {
+    return queries.maxMana(stableId);
+  }
+
+  @Override
+  public int coins(int stableId) {
+    return queries.coins(stableId);
+  }
+
+  @Override
+  public int dropAmount(int stableId) {
+    return queries.dropAmount(stableId);
+  }
+
+  @Override
+  public float deathProgress(int stableId) {
+    return queries.deathProgress(stableId);
   }
 
   @Override

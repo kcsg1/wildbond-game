@@ -7,22 +7,13 @@ import com.wildbond.client.GameConfig;
 import com.wildbond.client.InputMapper;
 import com.wildbond.client.ViewState;
 import com.wildbond.client.WildbondGame;
-import com.wildbond.client.map.FileChunkLoader;
 import com.wildbond.client.render.CaptureEffects;
 import com.wildbond.client.render.HitEffects;
-import com.wildbond.client.render.RenderConstants;
-import com.wildbond.data.Element;
+import com.wildbond.client.world.Zone;
+import com.wildbond.client.world.ZoneRuntime;
 import com.wildbond.data.GameData;
-import com.wildbond.sim.ChunkTileMap;
-import com.wildbond.sim.Command;
-import com.wildbond.sim.Sim;
-import com.wildbond.sim.SimView;
-import com.wildbond.sim.events.Damaged;
-import com.wildbond.sim.events.PalCaptureFailed;
-import com.wildbond.sim.events.PalCaptured;
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.util.List;
 
 /**
  * 정적 데이터·청크 로더·sim 을 준비하고 곧바로 PlayScreen 으로 넘어간다 (docs/architecture.md §5, docs/m0-prompts.md 단계5
@@ -30,18 +21,10 @@ import java.util.List;
  */
 public final class BootScreen implements Screen {
 
-  private static final long WORLD_SEED = 20260904L;
+  /** 마을 한가운데 — village.tmx 의 십자 흙길이 만나는 지점. */
+  private static final int START_TILE_X = 32;
 
-  // test_island.tmx 의 연못(tx 10~17,ty 10~15)·절벽(tx 40~41) 을 피하고, 카메라 절반 폭(가상 640px
-  // = 타일 10개, 높이는 타일 5.625개)이 어느 쪽으로도 맵 밖(청크 없음 → 검은 화면)을 비추지 않을
-  // 만큼 가장자리에서 떨어진 지점 — 64x64 맵 한가운데 쪽.
-  private static final float SPAWN_TILE_X = 25.5f;
-  private static final float SPAWN_TILE_Y = 25.5f;
-
-  // 단계6 임시 허수아비(docs/m0-prompts.md) — 플레이어에서 3타일 동쪽, 화면 안(가상 640px=20타일)에 바로 보인다.
-  private static final float DUMMY_TILE_X = SPAWN_TILE_X + 3f;
-  private static final float DUMMY_TILE_Y = SPAWN_TILE_Y;
-  private static final int DUMMY_MAX_HP = 100;
+  private static final int START_TILE_Y = 32;
 
   private final WildbondGame game;
   private final GameConfig config;
@@ -54,42 +37,19 @@ public final class BootScreen implements Screen {
   @Override
   public void show() {
     GameData gameData = loadGameData();
-    FileChunkLoader chunkLoader = new FileChunkLoader(config.chunksDir());
-    ChunkTileMap tileMap = new ChunkTileMap(chunkLoader);
-    Sim sim = new Sim(gameData, tileMap, WORLD_SEED);
 
-    float spawnX = SPAWN_TILE_X * RenderConstants.TILE_PX;
-    float spawnY = SPAWN_TILE_Y * RenderConstants.TILE_PX;
-    float dummyX = DUMMY_TILE_X * RenderConstants.TILE_PX;
-    float dummyY = DUMMY_TILE_Y * RenderConstants.TILE_PX;
-    sim.step(
-        0,
-        List.of(
-            new Command.SpawnPlayer(spawnX, spawnY),
-            new Command.SpawnDummy(dummyX, dummyY, Element.NONE, DUMMY_MAX_HP, 0, 0, 1)));
-
-    SimView view = sim.view();
-    int playerId = view.stableIdAt(0);
+    // 마을에서 시작한다 (docs/architecture.md D-16). 십자로 한가운데 광장.
+    ZoneRuntime zoneRuntime = new ZoneRuntime(config, gameData);
+    zoneRuntime.enter(Zone.VILLAGE, START_TILE_X, START_TILE_Y);
 
     InputMapper inputMapper = new InputMapper();
-    inputMapper.setControlledEntity(playerId);
+    inputMapper.setControlledEntity(zoneRuntime.playerId());
 
     ViewState viewState = new ViewState();
-    viewState.capture(view);
+    viewState.capture(zoneRuntime.sim().view());
 
     HitEffects hitEffects = new HitEffects();
     CaptureEffects captureEffects = new CaptureEffects();
-    sim.subscribe(
-        event -> {
-          switch (event) {
-            case Damaged damaged -> hitEffects.onDamaged(damaged);
-            case PalCaptured captured -> captureEffects.onCaptured(captured);
-            case PalCaptureFailed failed -> captureEffects.onCaptureFailed(failed);
-            default -> {
-              // 이동·스폰 이벤트는 렌더가 ViewState 로 이미 보고 있다.
-            }
-          }
-        });
 
     Texture tileset =
         new Texture(Gdx.files.absolute(config.tilesetFile().toAbsolutePath().toString()));
@@ -98,12 +58,10 @@ public final class BootScreen implements Screen {
         new PlayScreen(
             inputMapper,
             viewState,
-            sim,
+            zoneRuntime,
             gameData,
             config,
-            chunkLoader,
             tileset,
-            playerId,
             hitEffects,
             captureEffects));
   }

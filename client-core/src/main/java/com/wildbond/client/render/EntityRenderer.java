@@ -1,6 +1,8 @@
 package com.wildbond.client.render;
 
 import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.Pixmap;
+import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.math.Matrix4;
@@ -35,6 +37,10 @@ public final class EntityRenderer implements Disposable {
 
   private final GameData gameData;
   private final PlaceholderSprites sprites;
+
+  /** 머리 위 HP 바와 쓰러짐 연출에 쓰는 1×1 흰 픽셀. */
+  private final Texture pixel = makePixel();
+
   private final List<ViewState.Snapshot> sortBuffer = new ArrayList<>();
 
   /** 엔티티별 마지막으로 바라본 방향과 걷기 타이머 — 멈춰도 방향은 유지한다. */
@@ -43,10 +49,20 @@ public final class EntityRenderer implements Disposable {
   private final Map<Integer, Float> walkTimer = new HashMap<>();
 
   private int lastRenderCalls;
+  private float coinBobPhase;
 
   public EntityRenderer(GameData gameData, PlaceholderSprites sprites) {
     this.gameData = gameData;
     this.sprites = sprites;
+  }
+
+  private static Texture makePixel() {
+    Pixmap pixmap = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
+    pixmap.setColor(Color.WHITE);
+    pixmap.fill();
+    Texture texture = new Texture(pixmap);
+    pixmap.dispose();
+    return texture;
   }
 
   /**
@@ -63,6 +79,7 @@ public final class EntityRenderer implements Disposable {
       float deltaSeconds,
       HitEffects hitEffects,
       CaptureEffects captureEffects) {
+    coinBobPhase += deltaSeconds * 4f;
     sortBuffer.clear();
     sortBuffer.addAll(viewState.current());
     sortBuffer.sort(Comparator.comparingDouble(ViewState.Snapshot::y));
@@ -123,6 +140,26 @@ public final class EntityRenderer implements Disposable {
           drawSprite(
               batch,
               sprites.rock(),
+              anchorX,
+              anchorY,
+              RenderConstants.TILE_PX,
+              RenderConstants.TILE_PX);
+      case "house", "house_red" -> {
+        // 앵커는 왼쪽 아래 칸이라, 3칸 폭의 가운데로 옮겨서 그린다.
+        float houseCenterX =
+            anchorX + (PlaceholderSprites.HOUSE_TILES_W - 1) * RenderConstants.TILE_PX / 2f;
+        drawSprite(
+            batch,
+            sprites.house("house_red".equals(prop.type())),
+            houseCenterX,
+            anchorY,
+            PlaceholderSprites.HOUSE_W,
+            PlaceholderSprites.HOUSE_H);
+      }
+      case "fence" ->
+          drawSprite(
+              batch,
+              sprites.fence(),
               anchorX,
               anchorY,
               RenderConstants.TILE_PX,
@@ -201,13 +238,63 @@ public final class EntityRenderer implements Disposable {
           return; // 포획구가 흔들리는 동안에는 숨는다.
         }
         float size = palFootprint(snapshot.speciesId()) * (float) RenderConstants.TILE_PX;
+        float dying = snapshot.deathProgress();
+        if (dying > 0f) {
+          // 쓰러지는 중 — 점점 납작해지고 흐려진다. 다 쓰러지면 동전만 남는다.
+          batch.setColor(1f, 1f, 1f, Math.max(0f, 1f - dying));
+          float squashed = size * Math.max(0.15f, 1f - dying);
+          batch.draw(
+              sprites.pal(snapshot.speciesId()),
+              anchorX - size / 2f,
+              anchorY - squashed,
+              size,
+              squashed);
+          batch.setColor(Color.WHITE);
+          return;
+        }
         drawSprite(batch, sprites.pal(snapshot.speciesId()), anchorX, anchorY, size, size);
+        drawHealthBar(batch, snapshot, anchorX, anchorY - size);
       }
+      case DROP -> drawCoin(batch, anchorX, anchorY);
       case SPHERE -> drawSphere(batch, anchorX, anchorY, z);
       case UNKNOWN -> {
         // 렌더가 모르는 종류는 그리지 않는다.
       }
     }
+  }
+
+  /** 몬스터 머리 위 HP 바 — 다치지 않았으면 그리지 않는다(화면이 바로 지저분해진다). */
+  private void drawHealthBar(
+      SpriteBatch batch, ViewState.Snapshot snapshot, float centerX, float topY) {
+    int hp = snapshot.hp();
+    int maxHp = snapshot.maxHp();
+    if (hp < 0 || maxHp <= 0 || hp >= maxHp) {
+      return;
+    }
+    float width = 28f;
+    float height = 4f;
+    float x = centerX - width / 2f;
+    float y = topY - height - 3f;
+
+    batch.setColor(0.08f, 0.08f, 0.10f, 0.85f);
+    batch.draw(pixel, x - 1f, y - 1f, width + 2f, height + 2f);
+    float ratio = Math.max(0f, (float) hp / maxHp);
+    batch.setColor(ratio > 0.3f ? 0.85f : 0.9f, ratio > 0.3f ? 0.25f : 0.15f, 0.25f, 1f);
+    batch.draw(pixel, x, y, width * ratio, height);
+    batch.setColor(Color.WHITE);
+  }
+
+  /** 바닥에 떨어진 동전 — 살짝 위아래로 흔들려 눈에 띄게 한다. */
+  private void drawCoin(SpriteBatch batch, float x, float y) {
+    float bob = (float) StrictMath.sin(coinBobPhase) * 2f;
+    int size = 10;
+    batch.setColor(0f, 0f, 0f, 0.35f);
+    batch.draw(pixel, x - size / 2f, y - 3f, size, 3f);
+    batch.setColor(Color.valueOf("F2C23EFF"));
+    batch.draw(pixel, x - size / 2f, y - size - 3f + bob, size, size);
+    batch.setColor(Color.valueOf("8C6A14FF"));
+    batch.draw(pixel, x - size / 2f + 3f, y - size - 1f + bob, 4f, size - 4f);
+    batch.setColor(Color.WHITE);
   }
 
   /** 지면에 그림자를, 그 위 z 만큼 띄워 포획구를 그린다 (§3.2 "가상 높이 z"). */
@@ -258,6 +345,24 @@ public final class EntityRenderer implements Disposable {
     return a + (b - a) * t;
   }
 
+  /**
+   * 그 엔티티가 바라보는 방향의 조준각 ({@code Angle} 1/1024 단위). 스페이스바 공격이 마우스 대신 이 값을 쓴다 (D-17). 방향은 렌더가 이동량에서
+   * 뽑아 들고 있으므로 sim 에 facing 을 추가하지 않아도 된다.
+   */
+  public int facingAngle(int entityId) {
+    int dir = facing.getOrDefault(entityId, PlaceholderSprites.DIR_DOWN);
+    if (dir == PlaceholderSprites.DIR_UP) {
+      return 768; // -y (yDown 이라 화면 위)
+    }
+    if (dir == PlaceholderSprites.DIR_LEFT) {
+      return 512; // -x
+    }
+    if (dir == PlaceholderSprites.DIR_RIGHT) {
+      return 0; // +x
+    }
+    return 256; // +y (화면 아래)
+  }
+
   public int renderCalls() {
     return lastRenderCalls;
   }
@@ -265,5 +370,6 @@ public final class EntityRenderer implements Disposable {
   @Override
   public void dispose() {
     // 스프라이트는 PlayScreen 이 소유한다(ChunkRenderer 등과 공유하므로 여기서 버리지 않는다).
+    pixel.dispose();
   }
 }

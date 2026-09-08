@@ -4,14 +4,19 @@ import com.artemis.ComponentMapper;
 import com.artemis.World;
 import com.wildbond.sim.EntityKind;
 import com.wildbond.sim.SimView;
+import com.wildbond.sim.components.Dead;
+import com.wildbond.sim.components.DeathAnim;
+import com.wildbond.sim.components.DroppedItem;
 import com.wildbond.sim.components.DummyTag;
 import com.wildbond.sim.components.Health;
+import com.wildbond.sim.components.Mana;
 import com.wildbond.sim.components.Owner;
 import com.wildbond.sim.components.PalData;
 import com.wildbond.sim.components.Party;
 import com.wildbond.sim.components.PlayerTag;
 import com.wildbond.sim.components.Position;
 import com.wildbond.sim.components.Sphere;
+import com.wildbond.sim.components.Wallet;
 
 /**
  * Sim(SimView 구현)이 위임하는 읽기 전용 질의. 이 클래스만 컴포넌트를 직접 읽고, Sim 은 원시 값만 돌려받는다 — ArchitectureTest 의 "컴포넌트는
@@ -28,6 +33,11 @@ public final class EntityQueries {
   private final ComponentMapper<Owner> mOwner;
   private final ComponentMapper<Party> mParty;
   private final ComponentMapper<Sphere> mSphere;
+  private final ComponentMapper<Mana> mMana;
+  private final ComponentMapper<Wallet> mWallet;
+  private final ComponentMapper<DroppedItem> mDrop;
+  private final ComponentMapper<DeathAnim> mDeathAnim;
+  private final ComponentMapper<Dead> mDead;
 
   public EntityQueries(World world, EntityIndex index) {
     this.index = index;
@@ -39,6 +49,11 @@ public final class EntityQueries {
     this.mOwner = world.getMapper(Owner.class);
     this.mParty = world.getMapper(Party.class);
     this.mSphere = world.getMapper(Sphere.class);
+    this.mMana = world.getMapper(Mana.class);
+    this.mWallet = world.getMapper(Wallet.class);
+    this.mDrop = world.getMapper(DroppedItem.class);
+    this.mDeathAnim = world.getMapper(DeathAnim.class);
+    this.mDead = world.getMapper(Dead.class);
   }
 
   public int entityCount() {
@@ -78,6 +93,9 @@ public final class EntityQueries {
     if (mSphere.has(artemisId)) {
       return EntityKind.SPHERE;
     }
+    if (mDrop.has(artemisId)) {
+      return EntityKind.DROP;
+    }
     if (mDummy.has(artemisId)) {
       return EntityKind.DUMMY;
     }
@@ -102,6 +120,35 @@ public final class EntityQueries {
   public float renderZ(int stableId) {
     int artemisId = index.artemisIdOf(stableId);
     return mSphere.has(artemisId) ? mSphere.get(artemisId).z : 0f;
+  }
+
+  public int mana(int stableId) {
+    int artemisId = index.artemisIdOf(stableId);
+    return mMana.has(artemisId) ? mMana.get(artemisId).current : -1;
+  }
+
+  public int maxMana(int stableId) {
+    int artemisId = index.artemisIdOf(stableId);
+    return mMana.has(artemisId) ? mMana.get(artemisId).max : -1;
+  }
+
+  public int coins(int stableId) {
+    int artemisId = index.artemisIdOf(stableId);
+    return mWallet.has(artemisId) ? mWallet.get(artemisId).coins : -1;
+  }
+
+  public int dropAmount(int stableId) {
+    int artemisId = index.artemisIdOf(stableId);
+    return mDrop.has(artemisId) ? mDrop.get(artemisId).amount : -1;
+  }
+
+  public float deathProgress(int stableId) {
+    int artemisId = index.artemisIdOf(stableId);
+    if (!mDead.has(artemisId) || !mDeathAnim.has(artemisId)) {
+      return 0f;
+    }
+    DeathAnim anim = mDeathAnim.get(artemisId);
+    return anim.totalTicks <= 0 ? 1f : Math.min(1f, (float) anim.elapsedTicks / anim.totalTicks);
   }
 
   /** 플레이어(첫 PlayerTag 엔티티)의 파티에서 slot 번째 팰. 비었으면 -1. */

@@ -1,0 +1,241 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.10" tiledversion="1.11.0" orientation="orthogonal" renderorder="right-down" width="64" height="64" tilewidth="32" tileheight="32" infinite="0" nextlayerid="3" nextobjectid="166">
+ <tileset firstgid="1" name="placeholder" tilewidth="32" tileheight="32" tilecount="5" columns="5">
+  <image source="../../tilesets/placeholder.png" width="160" height="32"/>
+ </tileset>
+ <layer id="1" name="ground" width="64" height="64">
+  <data encoding="csv">
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,
+2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,
+2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
+</data>
+ </layer>
+ <objectgroup id="2" name="objects">
+      <object id="1" name="house_1" type="house" x="768" y="864" width="32" height="32"/>
+      <object id="2" name="house_red_2" type="house_red" x="1152" y="864" width="32" height="32"/>
+      <object id="3" name="house_3" type="house" x="768" y="1248" width="32" height="32"/>
+      <object id="4" name="house_red_4" type="house_red" x="1152" y="1248" width="32" height="32"/>
+      <object id="5" name="fence_5" type="fence" x="448" y="448" width="32" height="32"/>
+      <object id="6" name="fence_6" type="fence" x="448" y="1600" width="32" height="32"/>
+      <object id="7" name="fence_7" type="fence" x="480" y="448" width="32" height="32"/>
+      <object id="8" name="fence_8" type="fence" x="480" y="1600" width="32" height="32"/>
+      <object id="9" name="fence_9" type="fence" x="512" y="448" width="32" height="32"/>
+      <object id="10" name="fence_10" type="fence" x="512" y="1600" width="32" height="32"/>
+      <object id="11" name="fence_11" type="fence" x="544" y="448" width="32" height="32"/>
+      <object id="12" name="fence_12" type="fence" x="544" y="1600" width="32" height="32"/>
+      <object id="13" name="fence_13" type="fence" x="576" y="448" width="32" height="32"/>
+      <object id="14" name="fence_14" type="fence" x="576" y="1600" width="32" height="32"/>
+      <object id="15" name="fence_15" type="fence" x="608" y="448" width="32" height="32"/>
+      <object id="16" name="fence_16" type="fence" x="608" y="1600" width="32" height="32"/>
+      <object id="17" name="fence_17" type="fence" x="640" y="448" width="32" height="32"/>
+      <object id="18" name="fence_18" type="fence" x="640" y="1600" width="32" height="32"/>
+      <object id="19" name="fence_19" type="fence" x="672" y="448" width="32" height="32"/>
+      <object id="20" name="fence_20" type="fence" x="672" y="1600" width="32" height="32"/>
+      <object id="21" name="fence_21" type="fence" x="704" y="448" width="32" height="32"/>
+      <object id="22" name="fence_22" type="fence" x="704" y="1600" width="32" height="32"/>
+      <object id="23" name="fence_23" type="fence" x="736" y="448" width="32" height="32"/>
+      <object id="24" name="fence_24" type="fence" x="736" y="1600" width="32" height="32"/>
+      <object id="25" name="fence_25" type="fence" x="768" y="448" width="32" height="32"/>
+      <object id="26" name="fence_26" type="fence" x="768" y="1600" width="32" height="32"/>
+      <object id="27" name="fence_27" type="fence" x="800" y="448" width="32" height="32"/>
+      <object id="28" name="fence_28" type="fence" x="800" y="1600" width="32" height="32"/>
+      <object id="29" name="fence_29" type="fence" x="832" y="448" width="32" height="32"/>
+      <object id="30" name="fence_30" type="fence" x="832" y="1600" width="32" height="32"/>
+      <object id="31" name="fence_31" type="fence" x="864" y="448" width="32" height="32"/>
+      <object id="32" name="fence_32" type="fence" x="864" y="1600" width="32" height="32"/>
+      <object id="33" name="fence_33" type="fence" x="896" y="448" width="32" height="32"/>
+      <object id="34" name="fence_34" type="fence" x="896" y="1600" width="32" height="32"/>
+      <object id="35" name="fence_35" type="fence" x="928" y="448" width="32" height="32"/>
+      <object id="36" name="fence_36" type="fence" x="928" y="1600" width="32" height="32"/>
+      <object id="37" name="fence_37" type="fence" x="960" y="448" width="32" height="32"/>
+      <object id="38" name="fence_38" type="fence" x="960" y="1600" width="32" height="32"/>
+      <object id="39" name="fence_39" type="fence" x="1088" y="448" width="32" height="32"/>
+      <object id="40" name="fence_40" type="fence" x="1088" y="1600" width="32" height="32"/>
+      <object id="41" name="fence_41" type="fence" x="1120" y="448" width="32" height="32"/>
+      <object id="42" name="fence_42" type="fence" x="1120" y="1600" width="32" height="32"/>
+      <object id="43" name="fence_43" type="fence" x="1152" y="448" width="32" height="32"/>
+      <object id="44" name="fence_44" type="fence" x="1152" y="1600" width="32" height="32"/>
+      <object id="45" name="fence_45" type="fence" x="1184" y="448" width="32" height="32"/>
+      <object id="46" name="fence_46" type="fence" x="1184" y="1600" width="32" height="32"/>
+      <object id="47" name="fence_47" type="fence" x="1216" y="448" width="32" height="32"/>
+      <object id="48" name="fence_48" type="fence" x="1216" y="1600" width="32" height="32"/>
+      <object id="49" name="fence_49" type="fence" x="1248" y="448" width="32" height="32"/>
+      <object id="50" name="fence_50" type="fence" x="1248" y="1600" width="32" height="32"/>
+      <object id="51" name="fence_51" type="fence" x="1280" y="448" width="32" height="32"/>
+      <object id="52" name="fence_52" type="fence" x="1280" y="1600" width="32" height="32"/>
+      <object id="53" name="fence_53" type="fence" x="1312" y="448" width="32" height="32"/>
+      <object id="54" name="fence_54" type="fence" x="1312" y="1600" width="32" height="32"/>
+      <object id="55" name="fence_55" type="fence" x="1344" y="448" width="32" height="32"/>
+      <object id="56" name="fence_56" type="fence" x="1344" y="1600" width="32" height="32"/>
+      <object id="57" name="fence_57" type="fence" x="1376" y="448" width="32" height="32"/>
+      <object id="58" name="fence_58" type="fence" x="1376" y="1600" width="32" height="32"/>
+      <object id="59" name="fence_59" type="fence" x="1408" y="448" width="32" height="32"/>
+      <object id="60" name="fence_60" type="fence" x="1408" y="1600" width="32" height="32"/>
+      <object id="61" name="fence_61" type="fence" x="1440" y="448" width="32" height="32"/>
+      <object id="62" name="fence_62" type="fence" x="1440" y="1600" width="32" height="32"/>
+      <object id="63" name="fence_63" type="fence" x="1472" y="448" width="32" height="32"/>
+      <object id="64" name="fence_64" type="fence" x="1472" y="1600" width="32" height="32"/>
+      <object id="65" name="fence_65" type="fence" x="1504" y="448" width="32" height="32"/>
+      <object id="66" name="fence_66" type="fence" x="1504" y="1600" width="32" height="32"/>
+      <object id="67" name="fence_67" type="fence" x="1536" y="448" width="32" height="32"/>
+      <object id="68" name="fence_68" type="fence" x="1536" y="1600" width="32" height="32"/>
+      <object id="69" name="fence_69" type="fence" x="1568" y="448" width="32" height="32"/>
+      <object id="70" name="fence_70" type="fence" x="1568" y="1600" width="32" height="32"/>
+      <object id="71" name="fence_71" type="fence" x="1600" y="448" width="32" height="32"/>
+      <object id="72" name="fence_72" type="fence" x="1600" y="1600" width="32" height="32"/>
+      <object id="73" name="fence_73" type="fence" x="448" y="480" width="32" height="32"/>
+      <object id="74" name="fence_74" type="fence" x="1600" y="480" width="32" height="32"/>
+      <object id="75" name="fence_75" type="fence" x="448" y="512" width="32" height="32"/>
+      <object id="76" name="fence_76" type="fence" x="1600" y="512" width="32" height="32"/>
+      <object id="77" name="fence_77" type="fence" x="448" y="544" width="32" height="32"/>
+      <object id="78" name="fence_78" type="fence" x="1600" y="544" width="32" height="32"/>
+      <object id="79" name="fence_79" type="fence" x="448" y="576" width="32" height="32"/>
+      <object id="80" name="fence_80" type="fence" x="1600" y="576" width="32" height="32"/>
+      <object id="81" name="fence_81" type="fence" x="448" y="608" width="32" height="32"/>
+      <object id="82" name="fence_82" type="fence" x="1600" y="608" width="32" height="32"/>
+      <object id="83" name="fence_83" type="fence" x="448" y="640" width="32" height="32"/>
+      <object id="84" name="fence_84" type="fence" x="1600" y="640" width="32" height="32"/>
+      <object id="85" name="fence_85" type="fence" x="448" y="672" width="32" height="32"/>
+      <object id="86" name="fence_86" type="fence" x="1600" y="672" width="32" height="32"/>
+      <object id="87" name="fence_87" type="fence" x="448" y="704" width="32" height="32"/>
+      <object id="88" name="fence_88" type="fence" x="1600" y="704" width="32" height="32"/>
+      <object id="89" name="fence_89" type="fence" x="448" y="736" width="32" height="32"/>
+      <object id="90" name="fence_90" type="fence" x="1600" y="736" width="32" height="32"/>
+      <object id="91" name="fence_91" type="fence" x="448" y="768" width="32" height="32"/>
+      <object id="92" name="fence_92" type="fence" x="1600" y="768" width="32" height="32"/>
+      <object id="93" name="fence_93" type="fence" x="448" y="800" width="32" height="32"/>
+      <object id="94" name="fence_94" type="fence" x="1600" y="800" width="32" height="32"/>
+      <object id="95" name="fence_95" type="fence" x="448" y="832" width="32" height="32"/>
+      <object id="96" name="fence_96" type="fence" x="1600" y="832" width="32" height="32"/>
+      <object id="97" name="fence_97" type="fence" x="448" y="864" width="32" height="32"/>
+      <object id="98" name="fence_98" type="fence" x="1600" y="864" width="32" height="32"/>
+      <object id="99" name="fence_99" type="fence" x="448" y="896" width="32" height="32"/>
+      <object id="100" name="fence_100" type="fence" x="1600" y="896" width="32" height="32"/>
+      <object id="101" name="fence_101" type="fence" x="448" y="928" width="32" height="32"/>
+      <object id="102" name="fence_102" type="fence" x="1600" y="928" width="32" height="32"/>
+      <object id="103" name="fence_103" type="fence" x="448" y="960" width="32" height="32"/>
+      <object id="104" name="fence_104" type="fence" x="1600" y="960" width="32" height="32"/>
+      <object id="105" name="fence_105" type="fence" x="448" y="1088" width="32" height="32"/>
+      <object id="106" name="fence_106" type="fence" x="1600" y="1088" width="32" height="32"/>
+      <object id="107" name="fence_107" type="fence" x="448" y="1120" width="32" height="32"/>
+      <object id="108" name="fence_108" type="fence" x="1600" y="1120" width="32" height="32"/>
+      <object id="109" name="fence_109" type="fence" x="448" y="1152" width="32" height="32"/>
+      <object id="110" name="fence_110" type="fence" x="1600" y="1152" width="32" height="32"/>
+      <object id="111" name="fence_111" type="fence" x="448" y="1184" width="32" height="32"/>
+      <object id="112" name="fence_112" type="fence" x="1600" y="1184" width="32" height="32"/>
+      <object id="113" name="fence_113" type="fence" x="448" y="1216" width="32" height="32"/>
+      <object id="114" name="fence_114" type="fence" x="1600" y="1216" width="32" height="32"/>
+      <object id="115" name="fence_115" type="fence" x="448" y="1248" width="32" height="32"/>
+      <object id="116" name="fence_116" type="fence" x="1600" y="1248" width="32" height="32"/>
+      <object id="117" name="fence_117" type="fence" x="448" y="1280" width="32" height="32"/>
+      <object id="118" name="fence_118" type="fence" x="1600" y="1280" width="32" height="32"/>
+      <object id="119" name="fence_119" type="fence" x="448" y="1312" width="32" height="32"/>
+      <object id="120" name="fence_120" type="fence" x="1600" y="1312" width="32" height="32"/>
+      <object id="121" name="fence_121" type="fence" x="448" y="1344" width="32" height="32"/>
+      <object id="122" name="fence_122" type="fence" x="1600" y="1344" width="32" height="32"/>
+      <object id="123" name="fence_123" type="fence" x="448" y="1376" width="32" height="32"/>
+      <object id="124" name="fence_124" type="fence" x="1600" y="1376" width="32" height="32"/>
+      <object id="125" name="fence_125" type="fence" x="448" y="1408" width="32" height="32"/>
+      <object id="126" name="fence_126" type="fence" x="1600" y="1408" width="32" height="32"/>
+      <object id="127" name="fence_127" type="fence" x="448" y="1440" width="32" height="32"/>
+      <object id="128" name="fence_128" type="fence" x="1600" y="1440" width="32" height="32"/>
+      <object id="129" name="fence_129" type="fence" x="448" y="1472" width="32" height="32"/>
+      <object id="130" name="fence_130" type="fence" x="1600" y="1472" width="32" height="32"/>
+      <object id="131" name="fence_131" type="fence" x="448" y="1504" width="32" height="32"/>
+      <object id="132" name="fence_132" type="fence" x="1600" y="1504" width="32" height="32"/>
+      <object id="133" name="fence_133" type="fence" x="448" y="1536" width="32" height="32"/>
+      <object id="134" name="fence_134" type="fence" x="1600" y="1536" width="32" height="32"/>
+      <object id="135" name="fence_135" type="fence" x="448" y="1568" width="32" height="32"/>
+      <object id="136" name="fence_136" type="fence" x="1600" y="1568" width="32" height="32"/>
+      <object id="137" name="tree_137" type="tree" x="1664" y="1952" width="32" height="32"/>
+      <object id="138" name="tree_138" type="tree" x="160" y="1600" width="32" height="32"/>
+      <object id="139" name="tree_139" type="tree" x="1824" y="224" width="32" height="32"/>
+      <object id="140" name="tree_140" type="tree" x="1184" y="1888" width="32" height="32"/>
+      <object id="141" name="tree_141" type="tree" x="832" y="1664" width="32" height="32"/>
+      <object id="142" name="tree_142" type="tree" x="384" y="896" width="32" height="32"/>
+      <object id="143" name="tree_143" type="tree" x="1536" y="800" width="32" height="32"/>
+      <object id="144" name="tree_144" type="tree" x="1216" y="1376" width="32" height="32"/>
+      <object id="145" name="tree_145" type="tree" x="1856" y="160" width="32" height="32"/>
+      <object id="146" name="tree_146" type="tree" x="96" y="1568" width="32" height="32"/>
+      <object id="147" name="tree_147" type="tree" x="1504" y="1472" width="32" height="32"/>
+      <object id="148" name="tree_148" type="tree" x="1376" y="1312" width="32" height="32"/>
+      <object id="149" name="tree_149" type="tree" x="1568" y="1952" width="32" height="32"/>
+      <object id="150" name="tree_150" type="tree" x="448" y="1920" width="32" height="32"/>
+      <object id="151" name="tree_151" type="tree" x="1888" y="1312" width="32" height="32"/>
+      <object id="152" name="tree_152" type="tree" x="1952" y="352" width="32" height="32"/>
+      <object id="153" name="tree_153" type="tree" x="96" y="1216" width="32" height="32"/>
+      <object id="154" name="tree_154" type="tree" x="1344" y="1888" width="32" height="32"/>
+      <object id="155" name="tree_155" type="tree" x="896" y="1440" width="32" height="32"/>
+      <object id="156" name="tree_156" type="tree" x="320" y="256" width="32" height="32"/>
+      <object id="157" name="tree_157" type="tree" x="1824" y="1856" width="32" height="32"/>
+      <object id="158" name="tree_158" type="tree" x="576" y="928" width="32" height="32"/>
+      <object id="159" name="tree_159" type="tree" x="1248" y="1920" width="32" height="32"/>
+      <object id="160" name="tree_160" type="tree" x="192" y="1152" width="32" height="32"/>
+      <object id="161" name="tree_161" type="tree" x="1184" y="1664" width="32" height="32"/>
+      <object id="162" name="tree_162" type="tree" x="864" y="224" width="32" height="32"/>
+      <object id="163" name="tree_163" type="tree" x="672" y="768" width="32" height="32"/>
+      <object id="164" name="tree_164" type="tree" x="128" y="352" width="32" height="32"/>
+      <object id="165" name="tree_165" type="tree" x="64" y="928" width="32" height="32"/>
+ </objectgroup>
+</map>
