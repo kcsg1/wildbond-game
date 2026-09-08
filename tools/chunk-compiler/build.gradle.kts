@@ -15,10 +15,13 @@ val tilesetFile = rootProject.layout.projectDirectory.file("assets/tilesets/plac
 
 val generatePlaceholderTileset by tasks.registering(JavaExec::class) {
     group = "build"
-    description = "assets/tilesets/placeholder.png 를 색상 블록으로 생성한다 (docs/m0-prompts.md 단계4)"
+    description = "Kenney Tiny Town(CC0) 시트에서 지형 타일을 뽑아 assets/tilesets/placeholder.png 를 만든다"
     classpath = sourceSets["main"].runtimeClasspath
     mainClass.set("com.wildbond.tools.chunk.PlaceholderTilesetGenerator")
-    args(tilesetFile.asFile.absolutePath)
+    val tinyTownSheet =
+        rootProject.layout.projectDirectory.file("assets/tilesets/kenney_tiny_town.png")
+    args(tinyTownSheet.asFile.absolutePath, tilesetFile.asFile.absolutePath)
+    inputs.file(tinyTownSheet)
     outputs.file(tilesetFile)
 }
 

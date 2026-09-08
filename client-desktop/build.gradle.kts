@@ -42,4 +42,12 @@ tasks.named<JavaExec>("run") {
         "wildbond.tileset",
         rootProject.layout.projectDirectory.file("assets/tilesets/placeholder.png").asFile.absolutePath,
     )
+    systemProperty(
+        "wildbond.sheet.town",
+        rootProject.layout.projectDirectory.file("assets/tilesets/kenney_tiny_town.png").asFile.absolutePath,
+    )
+    systemProperty(
+        "wildbond.sheet.dungeon",
+        rootProject.layout.projectDirectory.file("assets/sprites/kenney_tiny_dungeon.png").asFile.absolutePath,
+    )
 }

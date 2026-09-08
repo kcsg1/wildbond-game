@@ -18,7 +18,9 @@ public final class DesktopLauncher {
         new GameConfig(
             resolvePath("wildbond.tables", "data/tables"),
             resolvePath("wildbond.chunks", "assets/maps/chunks"),
-            resolvePath("wildbond.tileset", "assets/tilesets/placeholder.png"));
+            resolvePath("wildbond.tileset", "assets/tilesets/placeholder.png"),
+            resolvePath("wildbond.sheet.town", "assets/tilesets/kenney_tiny_town.png"),
+            resolvePath("wildbond.sheet.dungeon", "assets/sprites/kenney_tiny_dungeon.png"));
 
     Lwjgl3ApplicationConfiguration appConfig = new Lwjgl3ApplicationConfiguration();
     appConfig.setTitle("Wildbond");

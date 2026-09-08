@@ -8,6 +8,7 @@ import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.ScreenUtils;
+import com.wildbond.client.GameConfig;
 import com.wildbond.client.GameLoop;
 import com.wildbond.client.InputMapper;
 import com.wildbond.client.ViewState;
@@ -19,6 +20,7 @@ import com.wildbond.client.render.EntityRenderer;
 import com.wildbond.client.render.GameCamera;
 import com.wildbond.client.render.HitEffects;
 import com.wildbond.client.render.PartyHud;
+import com.wildbond.client.render.PlaceholderSprites;
 import com.wildbond.data.GameData;
 import com.wildbond.sim.Angle;
 import com.wildbond.sim.Sim;
@@ -30,8 +32,9 @@ import java.util.function.IntConsumer;
  */
 public final class PlayScreen implements Screen {
 
-  // assets/tilesets/placeholder.png (grass,dirt,water,cliff,sand) — docs/m0-prompts.md 단계4 산출물.
-  private static final int TILE_COLUMNS = 5;
+  // assets/tilesets/placeholder.png — 앞 5칸이 Tile.csv id 1..5(grass,dirt,water,cliff,sand),
+  // 뒤 7칸은 렌더 전용(잔디 변형 3 + 물가 경계 4). ChunkRenderer 가 어떤 칸을 언제 쓸지 정한다.
+  private static final int TILE_COLUMNS = 12;
 
   private final GameLoop gameLoop;
   private final ViewState viewState;
@@ -39,6 +42,7 @@ public final class PlayScreen implements Screen {
 
   private final Texture tileset;
   private final ChunkRenderer chunkRenderer;
+  private final PlaceholderSprites sprites;
   private final EntityRenderer entityRenderer;
   private final DebugOverlay debugOverlay;
   private final HitEffects hitEffects;
@@ -62,6 +66,7 @@ public final class PlayScreen implements Screen {
       ViewState viewState,
       Sim sim,
       GameData gameData,
+      GameConfig config,
       FileChunkLoader chunkLoader,
       Texture tileset,
       int playerId,
@@ -72,7 +77,8 @@ public final class PlayScreen implements Screen {
     this.playerId = playerId;
     this.tileset = tileset;
     this.chunkRenderer = new ChunkRenderer(tileset, TILE_COLUMNS, chunkLoader);
-    this.entityRenderer = new EntityRenderer(gameData);
+    this.sprites = new PlaceholderSprites(config.tinyTownSheet(), config.tinyDungeonSheet());
+    this.entityRenderer = new EntityRenderer(gameData, sprites);
     this.debugOverlay = new DebugOverlay();
     this.hitEffects = hitEffects;
     this.captureEffects = captureEffects;
@@ -207,6 +213,7 @@ public final class PlayScreen implements Screen {
     debugOverlay.dispose();
     hitEffects.dispose();
     partyHud.dispose();
+    sprites.dispose();
     batch.dispose();
     tileset.dispose();
   }

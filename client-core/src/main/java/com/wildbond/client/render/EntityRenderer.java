@@ -6,7 +6,6 @@ import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.utils.Disposable;
 import com.wildbond.client.ViewState;
-import com.wildbond.data.Element;
 import com.wildbond.data.GameData;
 import com.wildbond.data.chunk.ChunkObject;
 import java.util.ArrayList;
@@ -35,7 +34,7 @@ public final class EntityRenderer implements Disposable {
   private static final Color HIT_TINT = new Color(1f, 0.45f, 0.45f, 1f);
 
   private final GameData gameData;
-  private final PlaceholderSprites sprites = new PlaceholderSprites();
+  private final PlaceholderSprites sprites;
   private final List<ViewState.Snapshot> sortBuffer = new ArrayList<>();
 
   /** 엔티티별 마지막으로 바라본 방향과 걷기 타이머 — 멈춰도 방향은 유지한다. */
@@ -45,8 +44,9 @@ public final class EntityRenderer implements Disposable {
 
   private int lastRenderCalls;
 
-  public EntityRenderer(GameData gameData) {
+  public EntityRenderer(GameData gameData, PlaceholderSprites sprites) {
     this.gameData = gameData;
+    this.sprites = sprites;
   }
 
   /**
@@ -117,11 +117,16 @@ public final class EntityRenderer implements Disposable {
               sprites.tree(),
               anchorX,
               anchorY,
-              sprites.treeWidthPx(),
-              sprites.treeHeightPx());
+              PlaceholderSprites.TREE_W,
+              PlaceholderSprites.TREE_H);
       case "resource_node" ->
           drawSprite(
-              batch, sprites.rock(), anchorX, anchorY, sprites.rockSizePx(), sprites.rockSizePx());
+              batch,
+              sprites.rock(),
+              anchorX,
+              anchorY,
+              RenderConstants.TILE_PX,
+              RenderConstants.TILE_PX);
       default -> {
         // 모르는 오브젝트 종류는 그리지 않는다 (스폰 포인트 등 보이지 않아야 하는 것도 있다).
       }
@@ -173,13 +178,15 @@ public final class EntityRenderer implements Disposable {
     switch (snapshot.kind()) {
       case PLAYER -> {
         int dir = facing.getOrDefault(snapshot.id(), PlaceholderSprites.DIR_DOWN);
+        // Kenney 캐릭터에는 걷기 프레임이 없다 — 1번 프레임에 1px 들썩여 걷는 느낌만 준다.
+        float bob = frame == 1 ? -1f : 0f;
         drawSprite(
             batch,
             sprites.player(dir, frame),
             anchorX,
-            anchorY,
-            RenderConstants.PLAYER_WIDTH_PX,
-            RenderConstants.PLAYER_HEIGHT_PX);
+            anchorY + bob,
+            PlaceholderSprites.CHARACTER_PX,
+            PlaceholderSprites.CHARACTER_PX);
       }
       case DUMMY ->
           drawSprite(
@@ -187,21 +194,14 @@ public final class EntityRenderer implements Disposable {
               sprites.dummy(),
               anchorX,
               anchorY,
-              RenderConstants.PLAYER_WIDTH_PX,
-              RenderConstants.PLAYER_HEIGHT_PX);
+              PlaceholderSprites.CHARACTER_PX,
+              PlaceholderSprites.CHARACTER_PX);
       case PAL -> {
         if (captureEffects.isPalHidden(snapshot.id())) {
           return; // 포획구가 흔들리는 동안에는 숨는다.
         }
-        int footprint = palFootprint(snapshot.speciesId());
-        float size = footprint * (float) RenderConstants.TILE_PX;
-        drawSprite(
-            batch,
-            sprites.pal(snapshot.speciesId(), palElement(snapshot.speciesId()), footprint),
-            anchorX,
-            anchorY,
-            size,
-            size);
+        float size = palFootprint(snapshot.speciesId()) * (float) RenderConstants.TILE_PX;
+        drawSprite(batch, sprites.pal(snapshot.speciesId()), anchorX, anchorY, size, size);
       }
       case SPHERE -> drawSphere(batch, anchorX, anchorY, z);
       case UNKNOWN -> {
@@ -231,10 +231,6 @@ public final class EntityRenderer implements Disposable {
 
   private int palFootprint(int speciesId) {
     return speciesId < 0 ? 1 : gameData.palSpecies(speciesId).footprint();
-  }
-
-  private Element palElement(int speciesId) {
-    return speciesId < 0 ? Element.NONE : gameData.palSpecies(speciesId).element1();
   }
 
   /** 포획구 흔들림 연출 — 스프라이트를 이 클래스가 들고 있으므로 그리기도 여기서 한다. */
@@ -268,6 +264,6 @@ public final class EntityRenderer implements Disposable {
 
   @Override
   public void dispose() {
-    sprites.dispose();
+    // 스프라이트는 PlayScreen 이 소유한다(ChunkRenderer 등과 공유하므로 여기서 버리지 않는다).
   }
 }

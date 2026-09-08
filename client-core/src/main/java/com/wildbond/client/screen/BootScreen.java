@@ -100,6 +100,7 @@ public final class BootScreen implements Screen {
             viewState,
             sim,
             gameData,
+            config,
             chunkLoader,
             tileset,
             playerId,
