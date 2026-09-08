@@ -58,4 +58,8 @@ tasks.named<JavaExec>("run") {
         "wildbond.sheet.lpcslash",
         rootProject.layout.projectDirectory.file("assets/sprites/lpc_player_slash.png").asFile.absolutePath,
     )
+    systemProperty(
+        "wildbond.sprites.monsters",
+        rootProject.layout.projectDirectory.dir("assets/sprites/monsters").asFile.absolutePath,
+    )
 }

@@ -9,12 +9,13 @@ import com.wildbond.data.chunk.ChunkFormat;
 import com.wildbond.sim.Command;
 import com.wildbond.sim.Dir8;
 import com.wildbond.sim.components.Collider;
-import com.wildbond.sim.components.CombatMemory;
 import com.wildbond.sim.components.Dead;
 import com.wildbond.sim.components.DummyTag;
 import com.wildbond.sim.components.ElementComponent;
 import com.wildbond.sim.components.EntityIdComponent;
+import com.wildbond.sim.components.Experience;
 import com.wildbond.sim.components.Health;
+import com.wildbond.sim.components.Inventory;
 import com.wildbond.sim.components.Mana;
 import com.wildbond.sim.components.PlayerTag;
 import com.wildbond.sim.components.Position;
@@ -27,26 +28,29 @@ import com.wildbond.sim.events.EventBus;
 import java.util.List;
 
 /**
- * §4.1 시스템 1번 — 명령 큐를 Velocity/엔티티 생성으로 바꾼다. UseSkill 과 ThrowSphere 는 각각 CombatSystem(5번)·
- * CaptureSystem(6번)이 같은 명령 목록을 따로 받아 처리하므로 여기서는 무시한다.
+ * §4.1 시스템 1번 — 명령 큐를 Velocity/엔티티 생성으로 바꾼다. UseSkill 은 CombatSystem(5번)이 같은 명령 목록을 따로 받아 처리하므로
+ * 여기서는 무시한다.
  *
  * <p>존재하지 않는 EntityId 를 가리키는 명령은 조용히 무시한다 — 명령은 sim 밖에서 만들어지고, 그 사이에 대상이 죽어 제거될 수 있다.
  */
 public final class CommandApplySystem extends BaseSystem {
-
-  /** {@code Command.SpawnPal} 로 만드는 팰의 개체값 — 난수를 소비하지 않아 테스트·벤치가 완전히 재현된다. */
-  private static final int[] ZERO_IV = new int[3];
 
   private final EntityIndex index;
   private final EventBus eventBus;
   private final GameData gameData;
 
   private List<Command> pending = List.of();
-  private PalFactory palFactory;
+  private MonsterFactory monsterFactory;
 
   private ComponentMapper<Velocity> mVelocity;
-  private ComponentMapper<EntityIdComponent> mEntityId;
   private ComponentMapper<Dead> mDead;
+  private ComponentMapper<Stats> mStats;
+  private ComponentMapper<Health> mHealth;
+  private ComponentMapper<Mana> mMana;
+  private ComponentMapper<Wallet> mWallet;
+  private ComponentMapper<Experience> mExperience;
+  private ComponentMapper<Inventory> mInventory;
+  private ComponentMapper<PlayerTag> mPlayer;
 
   public CommandApplySystem(EntityIndex index, EventBus eventBus, GameData gameData) {
     this.index = index;
@@ -62,9 +66,15 @@ public final class CommandApplySystem extends BaseSystem {
   @Override
   protected void initialize() {
     mVelocity = world.getMapper(Velocity.class);
-    mEntityId = world.getMapper(EntityIdComponent.class);
     mDead = world.getMapper(Dead.class);
-    palFactory = new PalFactory(world, index, gameData, eventBus);
+    mStats = world.getMapper(Stats.class);
+    mHealth = world.getMapper(Health.class);
+    mMana = world.getMapper(Mana.class);
+    mWallet = world.getMapper(Wallet.class);
+    mExperience = world.getMapper(Experience.class);
+    mInventory = world.getMapper(Inventory.class);
+    mPlayer = world.getMapper(PlayerTag.class);
+    monsterFactory = new MonsterFactory(world, index, gameData, eventBus);
   }
 
   @Override
@@ -74,24 +84,21 @@ public final class CommandApplySystem extends BaseSystem {
       switch (command) {
         case Command.MoveInput move -> applyMove(move);
         case Command.SpawnPlayer spawn -> spawnPlayer(spawn);
-        case Command.SpawnPal spawn -> spawnPal(spawn);
+        case Command.RestorePlayer restore -> restorePlayer(restore);
+        case Command.SpawnMonster spawn -> spawnMonster(spawn);
         case Command.SpawnDummy spawn -> spawnDummy(spawn);
         case Command.UseSkill useSkill -> {
           // CombatSystem 이 자기 몫으로 따로 받은 같은 명령 목록에서 처리한다.
-        }
-        case Command.ThrowSphere throwSphere -> {
-          // CaptureSystem 이 같은 방식으로 처리한다.
         }
       }
     }
     pending = List.of();
   }
 
-  private void spawnPal(Command.SpawnPal spawn) {
+  private void spawnMonster(Command.SpawnMonster spawn) {
     int chunkX = Math.floorDiv(AiContext.tileOf(spawn.x()), ChunkFormat.SIZE);
     int chunkY = Math.floorDiv(AiContext.tileOf(spawn.y()), ChunkFormat.SIZE);
-    palFactory.spawn(
-        spawn.x(), spawn.y(), spawn.speciesId(), spawn.level(), ZERO_IV, chunkX, chunkY);
+    monsterFactory.spawn(spawn.x(), spawn.y(), spawn.speciesId(), chunkX, chunkY);
   }
 
   private void applyMove(Command.MoveInput move) {
@@ -146,15 +153,41 @@ public final class CommandApplySystem extends BaseSystem {
     mana.max = CombatConstants.PLAYER_MAX_MP;
 
     edit.create(Wallet.class);
-
-    // 파티 팰이 "주인이 공격한 대상"을 읽어 함께 싸운다 (docs/m0-prompts.md 단계7).
-    edit.create(CombatMemory.class);
+    edit.create(Experience.class);
+    edit.create(Inventory.class);
 
     int stableId = index.assign(artemisId);
     EntityIdComponent idComponent = edit.create(EntityIdComponent.class);
     idComponent.value = stableId;
 
     eventBus.enqueue(new EntitySpawned(stableId, spawn.x(), spawn.y()));
+  }
+
+  /** D-16 — 존을 넘어온 플레이어의 레벨·경험치·HP/MP·소지금·인벤토리를 되돌린다. 스탯은 레벨에서 다시 계산한다(§3.2). */
+  private void restorePlayer(Command.RestorePlayer restore) {
+    int artemisId = index.artemisIdOrMissing(restore.entityId());
+    if (artemisId < 0 || !mPlayer.has(artemisId) || !mStats.has(artemisId)) {
+      return;
+    }
+    int level = Math.max(1, Math.min(Progression.MAX_LEVEL, restore.level()));
+    ProgressSystem.applyLevel(artemisId, mStats.get(artemisId), level, mHealth, mMana);
+    if (mHealth.has(artemisId) && restore.hp() > 0) {
+      Health health = mHealth.get(artemisId);
+      health.current = Math.min(health.max, restore.hp());
+    }
+    if (mMana.has(artemisId) && restore.mp() > 0) {
+      Mana mana = mMana.get(artemisId);
+      mana.current = Math.min(mana.max, restore.mp());
+    }
+    if (mExperience.has(artemisId)) {
+      mExperience.get(artemisId).exp = Math.max(0, restore.exp());
+    }
+    if (mWallet.has(artemisId)) {
+      mWallet.get(artemisId).coins = Math.max(0, restore.coins());
+    }
+    if (mInventory.has(artemisId)) {
+      InventoryOps.load(mInventory.get(artemisId), restore.itemIds(), restore.counts());
+    }
   }
 
   /** 단계 6 임시 허수아비(EntityKind.DUMMY) — 스킬을 모르므로 공격하지 않는다. */

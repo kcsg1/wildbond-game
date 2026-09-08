@@ -2,6 +2,63 @@
 
 가장 최근 항목이 **위**에 온다. 형식은 `CLAUDE.md` "작업 절차" 참고. 단계 번호는 `docs/m0-prompts.md` 기준.
 
+## 2026-09-09 (2) — D-19 장르 전환: 팰 폐기, 바람의나라식 사냥 RPG · 첫 사냥터는 사슴
+
+- 요청: "게임의 전체적인 구조를 다시 만들어보자. 펠은 잊어버려. 바람의나라와 비슷한 게임. 구조를 상세하게 다시
+  짜줘. 첫 던전은 펠 대신 사슴, 잡으면 동전 or 사슴가죽."
+- **문서 먼저 고쳤다** — `docs/architecture.md` **v0.5**: §0 장르(2D 탑다운 사냥 RPG, 개인용), §3 엔티티
+  (MonsterSpecies/MonsterInstance/Player/Item/LootTable/DroppedItem/Inventory/Npc), §3.2 규칙(전리품 = 처치당 가중치
+  한 줄, 경험치 `20×level²`, 레벨업 +10HP +5MP +2atk +1def 전회복, 사망 → 5초 뒤 마을 부활), §4.1 시스템 순서
+  (CommandApply→AI→PathFollow→Movement→Combat→Drop→Progress→Spawn→EventFlush), §4.2 명령(RestorePlayer 추가),
+  §9 성향표(passive/timid/aggressive)·리스폰 20s, §12 로드맵(M0 사냥 루프 / M1 마을 경제 / M2 콘텐츠 / M3 마무리),
+  **D-19**. 포획·파티·거점 관련 문구는 폐기 표시.
+- 한 일 (data): `PalSpecies.csv` 삭제 → `Monster.csv`(사슴 1 passive / 늑대 2 aggressive / 바위 골렘 3),
+  `LootTable.csv`(사슴: 동전 60 · 가죽 30 · 고기 10), `Item.csv` 재작성(동전이 id 1 currency — 이전의
+  `COIN_ITEM_ID = 0` 자리표시자 해소), `enums.csv` 에 Temperament·ItemCategory. datagen 이 `ref:Skill[]?` 로
+  빈 스킬 목록을 받도록 표 타입을 고쳤다(사슴은 스킬 없음). `GameDataTest` 재작성
+- 한 일 (sim) — 포획·파티 코드를 전부 걷어냈다:
+  - 삭제: `PalData/PalState/Owner/Party/Sphere/CombatMemory`, `CaptureSystem/CaptureFormula/CaptureConstants`,
+    `PalFactory/PalConstants/PalBehaviors`, `PalCaptured/PalCaptureFailed`, `Command.ThrowSphere/SpawnPal`,
+    `EntityKind.PAL/SPHERE`, `SimView.ownerId/partyEntityId/PARTY_SLOTS`, 테스트 4개
+  - 추가: `MonsterData(speciesId)`·`MonsterState`·`Experience`·`Inventory(20슬롯)`, `MonsterFactory`(스탯은 표 값
+    그대로, 개체 성장 없음), `MonsterConstants`, `MonsterBehaviors`(트리 한 그루 — 성향 차이는 `AiContext` 조건에서:
+    aggressive 만 시야 감지, passive 는 맞으면 도주, timid 는 반격하다 HP<20% 에 도주; 피격 기억 4s),
+    `LootRoll`(가중치 순수 함수)·`InventoryOps`(스택 규칙)·`Progression`(경험치·레벨 공식 순수 함수),
+    `ProgressSystem`(마지막 타격자에게 exp, 레벨업 → `LevelUp` 이벤트, 스탯은 레벨에서 계산),
+    `Command.RestorePlayer`·`SpawnMonster`, `SimView` 에 level/exp/expToNext/inventory/dropItemId,
+    이벤트 `ItemPicked`·`LevelUp`
+  - `DropSystem`: 전리품표 롤(LOOT 스트림) → 동전은 소지금, 나머지는 인벤토리(꽉 차면 바닥에 남김), 60s 만료.
+    `Dead` 에 killerStableId·lootRolled·expAwarded 플래그 — 시체가 5초 남는 동안 두 번 굴리지 않는다
+  - `SpawnSystem`: 청크당 마리 수를 유지하는 **리스폰 타이머**(`SpawnRules.respawnTicks`, 기본 20s) 추가
+  - `CombatSystem`: 진영은 플레이어 / 몬스터 둘뿐. 피격 시 `Brain.threatStableId` + 만료 틱을 심는다
+- 한 일 (client): `CaptureEffects/PartyHud/CaptureBindings` 삭제, `InputMapper` 에서 포획구 제거.
+  `PlaceholderSprites` 가 `assets/sprites/monsters/<이름>.png` 낱장을 읽는다(사슴·늑대는 직접 그린 16×16 픽셀아트,
+  골렘은 Tiny Dungeon). `EntityRenderer` 몬스터 = footprint×32, 좌우 반전, 전리품은 동전/주머니 구분.
+  `StatusHud` 에 Lv·EXP 막대, 새 `InventoryHud`(왼쪽 아래 "BAG n/20" + 채워진 슬롯). `HitEffects` 에 LEVEL UP 글자.
+  `ZoneRuntime`: 존 전환·부활 모두 `SpawnPlayer + RestorePlayer` — HP/MP/레벨/경험치/소지금/인벤토리가 존을 넘어
+  유지된다(지난번 "M1 몫"으로 미뤘던 것을 명령으로 해결). 플레이어 시체가 제거되면 마을에서 만땅으로 부활.
+  `Zone`: FIELD 는 사슴만, CAVE 는 늑대·골렘
+- 검증: **하네스 전체 모드 통과** (`reports/harness/20260909-045425.md`, 68/0/0/0; 빠른 모드 첫 실행은 T-014 로 1건
+  실패 → 수정 후 통과). `:sim:bench` crowd 500개 avg 0.304ms(예산 8ms), monsters(늑대 24) avg 0.006ms(예산 3ms) — 벤치
+  시나리오를 "팰 24"에서 "늑대 24 추격"으로 바꿨다.
+  `PrintWindow`(T-007) 캡처: 마을 시작(HP/MP/EXP/Lv/BAG HUD). 시작 존을 잠시 FIELD 로 바꾸고 몬스터 3종을 놓아
+  찍었다(되돌림) — 사슴이 그려지고, 늑대·골렘이 플레이어를 물어 죽이자 **5초 뒤 마을에서 만땅으로 부활**하는 것까지
+  캡처로 확인됐다(의도치 않은 검증). 두 번째 시도에서는 시작 직후 근접 공격이 한 번 나가 사슴 HP 바가 뜨고 사슴이
+  멀어진 상태가 찍혔다 — 첫 프레임 `isButtonJustPressed` 오탐으로 보인다(아래 남은 일)
+- 결정:
+  - **몬스터는 개체 변수가 없다** — 종 id 하나로 스탯·레벨·전리품을 표에서 다시 찾는다. 세이브·리플레이가 단순해진다
+  - **플레이어 스탯은 레벨에서 계산**한다(더해 나가지 않는다). 존을 넘어오며 레벨만 복원해도 항상 같은 값이 나온다
+  - **BT 는 한 그루**, 성향은 조건에서 갈린다 — 성향이 늘어도 트리를 늘리지 않는다
+  - `DropSystem` 의 전리품표 조회 맵은 정렬된 배열을 구간으로 잘라 만든다 — HashMap 순회 금지(§4.3)
+- 남은 일:
+  - **사람 확인 필요**: 들판에서 사슴을 때리면 도망치는지, 잡으면 동전/가죽이 떨어지고 주워지는지, 레벨업 글자.
+    이 환경은 입력 주입이 막혀 있다(T-007). sim 쪽은 `HuntLoopTest`·`MonsterAiTest` 가 같은 흐름을 검증한다
+  - UseItem/Interact/BuyItem/SellItem 명령과 NPC·상점(§12 M1)
+  - 사슴·늑대 그림은 임시 픽셀아트다. 걷기 프레임이 없어 1px 들썩임뿐이다
+  - `docs/m0-prompts.md` 는 팰 시대의 프롬프트 기록이라 그대로 뒀다(역사 기록)
+  - 창이 뜬 직후 근접 공격이 한 번 나가는 것으로 보인다(캡처에서 관찰). 사람이 실제로 재현되는지 보고, 그렇다면
+    첫 몇 프레임의 `isButtonJustPressed` 를 무시하는 가드를 PlayScreen 에 둔다
+
 ## 2026-09-06 (후속) — 경로·git 정리 + 임시 스프라이트 입히기
 - 목표: (1) 작업 트리 위치와 GitHub 연결을 확정하고, (2) 단색 블록이던 엔티티를 형태가 보이는 임시 스프라이트로 교체
 - 한 일:
@@ -137,18 +194,14 @@
 
 ## 현재 상태
 
-- 마일스톤: M0 수직 슬라이스 — 단계 7 완료. 이후 바람의나라식 구조(존 3개·HP/MP·전리품)로 확장 중
-- 다음 단계: M0 수용 기준 사람 확인 → M1(거점 루프) 프롬프트 작성
-- 열린 결정: 없음. 경로·git 은 2026-09-06 후속 작업에서 확정 (CLAUDE.md "환경" 참고)
-- git: GitHub `kcsg1/wildbond-game` `main`. **단계 7 작업은 아직 커밋되지 않았다** — 사람이 지시하면 커밋·푸시한다
-- 하네스: 단계 7 전체 모드 통과 (`reports\harness\20260906-094120.md`, 67/0/0/0).
-  `:sim:bench` 두 시나리오 모두 예산 내
-- 환경: 이 트리에는 JDK 가 없어 Temurin 25.0.4.1 을 `C:\develop\develop\jdk\` 에 설치하고 백신 SSL 스캐닝
-  루트 CA 를 그 JDK 의 cacerts 에 등록했다 (T-008). `JAVA_HOME`·`GRADLE_USER_HOME` 은 사용자 환경 변수로 설정됨
-- **사람 확인이 남은 것**: 마우스 좌/우클릭 스킬(단계 6), 숫자 키 1 포획구 던지기·포획·동행(단계 7).
-  이 환경은 GUI 앱에 키/마우스 입력을 주입할 수 없다(T-007)
-- 경로: CLAUDE.md 는 `C:\Users\user\Desktop\develop\wildbond-game` 로 적혀 있으나, 2026-09-06 세션의 실제
-  작업 트리는 `C:\develop\develop\wildbond-game\wildbond-game`, Gradle 홈은 `C:\develop\develop\.gradle-home`
+- 마일스톤: **v0.5 M0 사냥 루프** (D-19 장르 전환, 2026-09-09) — 마을 → 들판(사슴) → 굴(늑대·골렘), 전리품·경험치·
+  레벨업·인벤토리·부활까지 sim 구현 완료. 팰·포획·파티 코드는 전부 제거됨
+- 다음 단계: 사람이 실제 플레이로 사냥 루프 확인 → M1 마을 경제(NPC·상점·UseItem, §12)
+- 열린 결정: 없음
+- git: GitHub `kcsg1/wildbond-game` `main`. 커밋·푸시는 사람 지시로만
+- 하네스: 최신 전체 모드 결과는 위 항목의 "검증" 줄과 `reports\harness\latest.md`
+- **사람 확인이 남은 것**: 스페이스바 공격 → 사슴 도주/처치 → 전리품 획득 → 레벨업 글자, 존 전환 후 인벤토리 유지,
+  사망 → 마을 부활. 이 환경은 GUI 앱에 키/마우스 입력을 주입할 수 없다(T-007)
 
 ---
 

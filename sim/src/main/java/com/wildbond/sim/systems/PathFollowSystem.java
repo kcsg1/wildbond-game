@@ -82,7 +82,8 @@ public final class PathFollowSystem extends BaseSystem {
   private static boolean withinArrivalRadius(Position position, int tileX, int tileY) {
     float dx = tileCenter(tileX) - position.x;
     float dy = tileCenter(tileY) - position.y;
-    return dx * dx + dy * dy <= PalConstants.WAYPOINT_ARRIVE_PX * PalConstants.WAYPOINT_ARRIVE_PX;
+    return dx * dx + dy * dy
+        <= MonsterConstants.WAYPOINT_ARRIVE_PX * MonsterConstants.WAYPOINT_ARRIVE_PX;
   }
 
   private static float tileCenter(int tile) {

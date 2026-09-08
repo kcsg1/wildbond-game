@@ -20,7 +20,7 @@
 
 - 지형: `tools/chunk-compiler` 의 `PlaceholderTilesetGenerator` 가 Tiny Town 시트에서 필요한 타일을
   골라 32×32 로 확대해 `tilesets/placeholder.png` 를 만든다. **물은 Tiny Town 에 없어서 직접 그린다.**
-- 캐릭터·팰·나무·바위: `client-core` 의 `PlaceholderSprites` 가 두 시트를 읽어 잘라 쓴다.
+- 소품(나무·바위·집·울타리)·바위 골렘·허수아비: `client-core` 의 `PlaceholderSprites` 가 두 시트를 읽어 잘라 쓴다.
 
 
 ## LPC (Liberated Pixel Cup) — 플레이어 캐릭터
@@ -53,3 +53,14 @@ Generator](https://github.com/LiberatedPixelCup/Universal-LPC-Spritesheet-Charac
 - 위 저작자 목록을 지운 채 배포하지 않는다 (CC-BY-SA·OGA-BY 의 표기 의무).
 - **나중에 상업 배포로 방향이 바뀌면 이 캐릭터 에셋을 먼저 걷어내야 한다.** 코드는 영향받지 않지만,
   LPC 아트를 실은 채 상업 배포하면 아트를 같은 라이선스로 공개해야 한다.
+
+
+## 직접 그린 것 — CC0
+
+| 파일 | 내용 |
+|---|---|
+| `sprites/monsters/deer.png` | 사슴 (16×16, 오른쪽 보기) — data/tables/Monster.csv id 1 |
+| `sprites/monsters/wolf.png` | 늑대 (16×16, 오른쪽 보기) — id 2 |
+
+Kenney Tiny Dungeon 에 사슴·늑대가 없어서 이 프로젝트에서 직접 찍은 픽셀아트다 (2026-09-09, D-19 장르 전환).
+외부 저작물이 아니므로 CC0 로 둔다. 왼쪽을 볼 때는 코드에서 좌우 반전한다.

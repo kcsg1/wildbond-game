@@ -14,15 +14,13 @@ import com.wildbond.sim.Rng;
 import com.wildbond.sim.Ticks;
 import com.wildbond.sim.TileMap;
 import com.wildbond.sim.components.Brain;
-import com.wildbond.sim.components.CombatMemory;
 import com.wildbond.sim.components.Dead;
 import com.wildbond.sim.components.ElementComponent;
 import com.wildbond.sim.components.EntityIdComponent;
 import com.wildbond.sim.components.Health;
 import com.wildbond.sim.components.Mana;
-import com.wildbond.sim.components.Owner;
-import com.wildbond.sim.components.PalData;
-import com.wildbond.sim.components.PalState;
+import com.wildbond.sim.components.MonsterData;
+import com.wildbond.sim.components.MonsterState;
 import com.wildbond.sim.components.PlayerTag;
 import com.wildbond.sim.components.Position;
 import com.wildbond.sim.components.Projectile;
@@ -65,11 +63,9 @@ public final class CombatSystem extends BaseSystem {
   private ComponentMapper<Dead> mDead;
   private ComponentMapper<Projectile> mProjectile;
   private ComponentMapper<EntityIdComponent> mEntityId;
-  private ComponentMapper<CombatMemory> mCombatMemory;
   private ComponentMapper<Brain> mBrain;
   private ComponentMapper<PlayerTag> mPlayer;
-  private ComponentMapper<Owner> mOwner;
-  private ComponentMapper<PalData> mPal;
+  private ComponentMapper<MonsterData> mMonster;
   private ComponentMapper<Mana> mMana;
   private ComponentMapper<com.wildbond.sim.components.DeathAnim> mDeathAnim;
 
@@ -123,11 +119,9 @@ public final class CombatSystem extends BaseSystem {
     mDead = world.getMapper(Dead.class);
     mProjectile = world.getMapper(Projectile.class);
     mEntityId = world.getMapper(EntityIdComponent.class);
-    mCombatMemory = world.getMapper(CombatMemory.class);
     mBrain = world.getMapper(Brain.class);
     mPlayer = world.getMapper(PlayerTag.class);
-    mOwner = world.getMapper(Owner.class);
-    mPal = world.getMapper(PalData.class);
+    mMonster = world.getMapper(MonsterData.class);
     mMana = world.getMapper(Mana.class);
     mDeathAnim = world.getMapper(com.wildbond.sim.components.DeathAnim.class);
   }
@@ -290,23 +284,15 @@ public final class CombatSystem extends BaseSystem {
   }
 
   /**
-   * 같은 편끼리는 맞지 않는다 — 파티 팰의 범위 스킬(부채꼴·직사각형)이 주인을 때리거나 야생끼리 난투가 벌어지는 것을 막는다.
+   * 같은 편끼리는 맞지 않는다 — 몬스터의 범위 스킬이 옆의 몬스터를 때려 난투가 벌어지는 것을 막는다.
    *
-   * <p>문서에 진영 개념이 따로 없어 M0 은 두 편만 둔다: 플레이어와 그 파티 팰 / 주인 없는 야생 팰. 허수아비(단계 6)는 어느 쪽도 아니라 누구에게나 맞는다.
+   * <p>진영은 둘뿐이다(§3.1): 플레이어 / 몬스터. 허수아비는 어느 쪽도 아니라 누구에게나 맞는다.
    */
   private boolean sameSide(int a, int b) {
-    if (isPlayerSide(a) && isPlayerSide(b)) {
+    if (mPlayer.has(a) && mPlayer.has(b)) {
       return true;
     }
-    return isWildPal(a) && isWildPal(b);
-  }
-
-  private boolean isPlayerSide(int artemisId) {
-    return mPlayer.has(artemisId) || mOwner.has(artemisId);
-  }
-
-  private boolean isWildPal(int artemisId) {
-    return mPal.has(artemisId) && !mOwner.has(artemisId);
+    return mMonster.has(a) && mMonster.has(b);
   }
 
   private void applyDamage(int casterArtemisId, int targetArtemisId, Skill skill) {
@@ -338,11 +324,13 @@ public final class CombatSystem extends BaseSystem {
     int targetStableId = mEntityId.get(targetArtemisId).value;
     eventBus.enqueue(new Damaged(targetStableId, damage, targetPos.x, targetPos.y, crit));
 
-    rememberEngagement(casterArtemisId, targetArtemisId, targetStableId);
+    rememberAttacker(casterArtemisId, targetArtemisId);
 
     if (health.current <= 0 && !mDead.has(targetArtemisId)) {
       Dead dead = world.edit(targetArtemisId).create(Dead.class);
       dead.ticksRemaining = CombatConstants.DEAD_REMOVE_TICKS;
+      dead.killerStableId =
+          mEntityId.has(casterArtemisId) ? mEntityId.get(casterArtemisId).value : -1;
       com.wildbond.sim.components.DeathAnim anim =
           world.edit(targetArtemisId).create(com.wildbond.sim.components.DeathAnim.class);
       anim.totalTicks = CombatConstants.DEAD_REMOVE_TICKS;
@@ -352,21 +340,15 @@ public final class CombatSystem extends BaseSystem {
   }
 
   /**
-   * 공격자에게는 "마지막으로 때린 대상"을, 맞은 쪽에는 "때린 놈"을 남긴다.
-   *
-   * <p>앞은 파티 팰이 주인을 따라 싸우게 하고(docs/m0-prompts.md 단계7), 뒤는 야생 팰이 맞으면 반격하게 한다(§9.1 Combat 은 threat 이
-   * 있을 때 도는데, 시야 밖에서 원거리로 맞는 경우 감지만으로는 threat 이 생기지 않는다).
+   * 맞은 몬스터에게 "때린 놈"을 남긴다 (§9.1). passive 는 이걸로 도망치고, timid 는 반격하며, aggressive 는 시야 밖에서 원거리로 맞아도 곧장
+   * 추격한다 — 감지만으로는 threat 이 생기지 않는 경우를 메운다. 기억은 HIT_MEMORY_TICKS 뒤 사라진다.
    */
-  private void rememberEngagement(int casterArtemisId, int targetArtemisId, int targetStableId) {
-    if (mCombatMemory.has(casterArtemisId)) {
-      CombatMemory memory = mCombatMemory.get(casterArtemisId);
-      memory.lastTargetStableId = targetStableId;
-      memory.lastTargetTick = clock.tick();
-    }
+  private void rememberAttacker(int casterArtemisId, int targetArtemisId) {
     if (mBrain.has(targetArtemisId) && mEntityId.has(casterArtemisId)) {
       Brain brain = mBrain.get(targetArtemisId);
       brain.threatStableId = mEntityId.get(casterArtemisId).value;
-      brain.state = PalState.COMBAT;
+      brain.threatExpiresTick = clock.tick() + MonsterConstants.HIT_MEMORY_TICKS;
+      brain.state = MonsterState.COMBAT;
     }
   }
 

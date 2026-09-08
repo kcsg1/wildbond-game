@@ -1,6 +1,6 @@
 # Wildbond
 
-2D 탑다운 크리처 포획·거점 건설·서바이벌 게임 (싱글플레이, Java 21 + LibGDX).
+2D 탑다운 사냥 RPG — 마을에서 시작해 사냥터로 나가 몬스터를 잡고 전리품·경험치를 모은다 (싱글플레이, Java 25 + LibGDX).
 
 - 설계: `docs/architecture.md` (단일 원천)
 - 에이전트 규칙: `CLAUDE.md`

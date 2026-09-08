@@ -1,9 +1,12 @@
-# docs/architecture.md §8.1 Item. sphere_tier/sphere_multiplier 는 포획구에만 있다(§3.2).
-id,name_key,category,max_stack,weight,rarity,tool_power,food_value,sphere_tier,sphere_multiplier,icon
-int,string,enum:ItemCategory,int(1..9999),float(0..500),int(0..4),int?,int?,int(1..5)?,float(1.0..3.0)?,string
-1,item.sphere_basic,sphere,50,0.5,0,,,1,1.0,icons/sphere_basic
-2,item.sphere_mega,sphere,50,0.6,1,,,2,1.4,icons/sphere_mega
-3,item.sphere_giga,sphere,50,0.7,2,,,3,1.8,icons/sphere_giga
-4,item.wood,material,999,0.2,0,,,,,icons/wood
-5,item.stone,material,999,0.4,0,,,,,icons/stone
-6,item.potion_small,consumable,20,0.3,1,,40,,,icons/potion_small
+# docs/architecture.md §3.1 Item. currency 는 인벤토리가 아니라 소지금으로 센다(§3.2 전리품).
+# sell_price 는 NPC 에게 팔 때, buy_price 는 살 때(빈 칸이면 안 판다). M1 상점에서 쓴다.
+id,name_key,category,max_stack,weight,sell_price,buy_price,heal_hp,heal_mp,icon
+int,string,enum:ItemCategory,int(1..9999),float(0..500),int(0..1000000),int(1..1000000)?,int(0..10000)?,int(0..10000)?,string
+1,item.coin,currency,9999,0,1,,,,icons/coin
+2,item.deer_hide,material,99,0.5,12,,,,icons/deer_hide
+3,item.deer_meat,material,99,0.4,6,,,,icons/deer_meat
+4,item.wolf_pelt,material,99,0.6,40,,,,icons/wolf_pelt
+5,item.wood,material,999,0.2,1,,,,icons/wood
+6,item.stone,material,999,0.4,1,,,,icons/stone
+7,item.potion_small,consumable,20,0.3,10,30,40,,icons/potion_small
+8,item.mana_potion_small,consumable,20,0.3,12,35,,30,icons/mana_potion_small

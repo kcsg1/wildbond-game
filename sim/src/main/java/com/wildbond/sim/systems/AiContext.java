@@ -4,18 +4,17 @@ import com.artemis.ComponentMapper;
 import com.artemis.World;
 import com.wildbond.data.GameData;
 import com.wildbond.data.HitShape;
+import com.wildbond.data.Monster;
 import com.wildbond.data.Skill;
 import com.wildbond.data.Temperament;
 import com.wildbond.sim.Angle;
 import com.wildbond.sim.Rng;
 import com.wildbond.sim.TileMap;
 import com.wildbond.sim.components.Brain;
-import com.wildbond.sim.components.CombatMemory;
 import com.wildbond.sim.components.Dead;
 import com.wildbond.sim.components.Health;
-import com.wildbond.sim.components.Owner;
-import com.wildbond.sim.components.PalData;
-import com.wildbond.sim.components.PalState;
+import com.wildbond.sim.components.MonsterData;
+import com.wildbond.sim.components.MonsterState;
 import com.wildbond.sim.components.PathComponent;
 import com.wildbond.sim.components.PlayerTag;
 import com.wildbond.sim.components.Position;
@@ -24,10 +23,11 @@ import com.wildbond.sim.components.Velocity;
 import com.wildbond.sim.systems.bt.BtStatus;
 
 /**
- * BT 노드가 보는 세상 — 현재 팰 하나를 가리키고, 조건/동작이 필요한 질의와 조작을 모두 메서드로 제공한다 (docs/architecture.md §9.1, §9.3).
+ * BT 노드가 보는 세상 — 현재 몬스터 하나를 가리키고, 조건/동작이 필요한 질의와 조작을 모두 메서드로 제공한다 (docs/architecture.md §9.1,
+ * §9.3).
  *
- * <p>인스턴스는 AiSystem 이 하나만 만들어 엔티티마다 {@link #bind} 로 다시 겨눈다 — BT 노드도 트리도 매 틱 새로 만들지 않으므로 AI 경로에서 할당이
- * 없다(§4.3).
+ * <p>인스턴스는 AiSystem 이 하나만 만들어 엔티티마다 {@link #bind} 로 다시 겨눈다 — 트리도 노드도 매 틱 새로 만들지 않으므로 AI 경로에서 할당이
+ * 없다(§4.3). 성향(passive/timid/aggressive)에 따른 차이는 전부 여기 조건에 있다.
  */
 public final class AiContext {
 
@@ -44,12 +44,10 @@ public final class AiContext {
   private final ComponentMapper<Health> mHealth;
   private final ComponentMapper<Brain> mBrain;
   private final ComponentMapper<PathComponent> mPath;
-  private final ComponentMapper<PalData> mPal;
-  private final ComponentMapper<Owner> mOwner;
+  private final ComponentMapper<MonsterData> mMonster;
   private final ComponentMapper<Skills> mSkills;
   private final ComponentMapper<Dead> mDead;
   private final ComponentMapper<PlayerTag> mPlayer;
-  private final ComponentMapper<CombatMemory> mCombatMemory;
 
   private int artemisId;
   private int stableId;
@@ -76,12 +74,10 @@ public final class AiContext {
     this.mHealth = world.getMapper(Health.class);
     this.mBrain = world.getMapper(Brain.class);
     this.mPath = world.getMapper(PathComponent.class);
-    this.mPal = world.getMapper(PalData.class);
-    this.mOwner = world.getMapper(Owner.class);
+    this.mMonster = world.getMapper(MonsterData.class);
     this.mSkills = world.getMapper(Skills.class);
     this.mDead = world.getMapper(Dead.class);
     this.mPlayer = world.getMapper(PlayerTag.class);
-    this.mCombatMemory = world.getMapper(CombatMemory.class);
   }
 
   void bind(int artemisEntityId, int entityStableId) {
@@ -89,43 +85,36 @@ public final class AiContext {
     this.stableId = entityStableId;
   }
 
-  boolean isOwned() {
-    return mOwner.has(artemisId);
-  }
-
   Brain brain() {
     return mBrain.get(artemisId);
   }
 
-  // ------------------------------------------------------------------ 감지
-
-  /** §9.1 "0.25s 간격" 감지 — 위협을 갱신한다. */
-  void sense() {
-    Brain brain = brain();
-    if (isOwned()) {
-      brain.threatStableId = ownerTarget();
-      return;
-    }
-    if (isThreatStillValid(brain.threatStableId, PalConstants.CHASE_GIVE_UP_TILES)) {
-      return; // 추격 중인 대상은 시야가 잠깐 끊겨도 유지한다.
-    }
-    brain.threatStableId = findNearestVisibleThreat();
+  private Monster species() {
+    return gameData.monster(mMonster.get(artemisId).speciesId);
   }
 
-  /** 주인이 최근에 때린 대상 (docs/m0-prompts.md 단계7 "주인이 공격한 대상 Combat"). */
-  private int ownerTarget() {
-    int ownerArtemisId = index.artemisIdOrMissing(mOwner.get(artemisId).ownerStableId);
-    if (ownerArtemisId < 0 || !mCombatMemory.has(ownerArtemisId)) {
-      return -1;
+  // ------------------------------------------------------------------ 감지
+
+  /**
+   * §9.1 "0.25s 간격" 감지. aggressive 만 시야로 플레이어를 잡는다. passive/timid 는 맞았을 때 CombatSystem 이 심어 준 위협을
+   * 기억 시간이 지날 때까지만 유지한다.
+   */
+  void sense() {
+    Brain brain = brain();
+    Temperament temperament = species().temperament();
+
+    if (temperament != Temperament.AGGRESSIVE) {
+      if (brain.threatStableId >= 0
+          && (clock.tick() > brain.threatExpiresTick
+              || !isThreatStillValid(brain.threatStableId, MonsterConstants.CHASE_GIVE_UP_TILES))) {
+        brain.threatStableId = -1;
+      }
+      return;
     }
-    CombatMemory memory = mCombatMemory.get(ownerArtemisId);
-    if (memory.lastTargetStableId < 0
-        || clock.tick() - memory.lastTargetTick > PalConstants.OWNER_TARGET_MEMORY_TICKS) {
-      return -1;
+    if (isThreatStillValid(brain.threatStableId, MonsterConstants.CHASE_GIVE_UP_TILES)) {
+      return; // 추격 중인 대상은 시야가 잠깐 끊겨도 유지한다.
     }
-    return isThreatStillValid(memory.lastTargetStableId, PalConstants.CHASE_GIVE_UP_TILES)
-        ? memory.lastTargetStableId
-        : -1;
+    brain.threatStableId = findNearestVisiblePlayer();
   }
 
   private boolean isThreatStillValid(int threatStableId, int maxTiles) {
@@ -142,17 +131,19 @@ public final class AiContext {
     return distanceSquared(self, other) <= maxPx * maxPx;
   }
 
-  /** 야생 팰의 위협 = 플레이어와 그 파티 팰. EntityId 오름차순으로 훑어 가장 가까운 하나를 고른다(§4.3). */
-  private int findNearestVisibleThreat() {
+  /** 시야(12타일 + solid/cliff 레이캐스트) 안의 가장 가까운 플레이어. EntityId 오름차순으로 훑는다(§4.3). */
+  private int findNearestVisiblePlayer() {
     Position self = mPosition.get(artemisId);
-    float sightPx = PalConstants.SIGHT_RADIUS_TILES * (float) SimConstants.TILE_SIZE_PX;
+    float sightPx = MonsterConstants.SIGHT_RADIUS_TILES * (float) SimConstants.TILE_SIZE_PX;
     float bestDistanceSquared = sightPx * sightPx;
     int best = -1;
 
     int n = index.size();
     for (int i = 0; i < n; i++) {
       int otherArtemisId = index.artemisIdAt(i);
-      if (!isHostileToWild(otherArtemisId) || mDead.has(otherArtemisId)) {
+      if (!mPlayer.has(otherArtemisId)
+          || mDead.has(otherArtemisId)
+          || !mPosition.has(otherArtemisId)) {
         continue;
       }
       Position other = mPosition.get(otherArtemisId);
@@ -170,33 +161,23 @@ public final class AiContext {
     return best;
   }
 
-  private boolean isHostileToWild(int otherArtemisId) {
-    if (!mPosition.has(otherArtemisId)) {
-      return false;
-    }
-    return mPlayer.has(otherArtemisId) || (mPal.has(otherArtemisId) && mOwner.has(otherArtemisId));
-  }
-
   // ------------------------------------------------------------ BT 조건
 
-  /** §9.1 Flee: HP < 20% && temperament == timid. */
+  /** §9.1 Flee: (passive && 위협 있음) || (timid && HP < 20%). aggressive 는 도망치지 않는다. */
   boolean shouldFlee() {
-    if (isOwned() || !mHealth.has(artemisId)) {
-      return false;
+    Temperament temperament = species().temperament();
+    if (temperament == Temperament.PASSIVE) {
+      return hasThreat();
     }
-    Health health = mHealth.get(artemisId);
-    if (health.max <= 0 || health.current > health.max * PalConstants.FLEE_HP_RATIO) {
-      return false;
+    if (temperament == Temperament.TIMID && hasThreat() && mHealth.has(artemisId)) {
+      Health health = mHealth.get(artemisId);
+      return health.max > 0 && health.current <= health.max * MonsterConstants.FLEE_HP_RATIO;
     }
-    return temperament() == Temperament.TIMID;
+    return false;
   }
 
   boolean hasThreat() {
     return brain().threatStableId >= 0 && index.artemisIdOrMissing(brain().threatStableId) >= 0;
-  }
-
-  private Temperament temperament() {
-    return gameData.palSpecies(mPal.get(artemisId).speciesId).temperament();
   }
 
   // ------------------------------------------------------------ BT 동작
@@ -208,17 +189,18 @@ public final class AiContext {
       return BtStatus.FAILURE;
     }
     Brain brain = brain();
-    brain.state = PalState.FLEE;
-    brain.speedPxS = PalConstants.FLEE_SPEED_PX_S;
+    float speed = species().speedPxS() * MonsterConstants.FLEE_SPEED_MULT;
+    brain.state = MonsterState.FLEE;
+    brain.speedPxS = speed;
     clearPath();
 
     Position self = mPosition.get(artemisId);
     Position threat = mPosition.get(threatArtemisId);
-    steer(self.x - threat.x, self.y - threat.y, PalConstants.FLEE_SPEED_PX_S);
+    steer(self.x - threat.x, self.y - threat.y, speed);
     return BtStatus.RUNNING;
   }
 
-  /** 사거리 안이고 쿨다운이 끝난 스킬이 있으면 쓴다 (§9.1 UseSkill(offCooldown, inRange)). */
+  /** 사거리 안이고 쿨다운이 끝난 스킬이 있으면 쓴다 (§9.1 UseSkill(offCooldown, inRange)). 스킬이 없는 종은 절대 성공하지 않는다. */
   BtStatus attackThreat() {
     int threatArtemisId = threatArtemisId();
     if (threatArtemisId < 0 || !mSkills.has(artemisId)) {
@@ -240,8 +222,7 @@ public final class AiContext {
       if (distanceSquared > range * range) {
         continue;
       }
-      Brain brain = brain();
-      brain.state = PalState.COMBAT;
+      brain().state = MonsterState.COMBAT;
       clearPath();
       stop();
       combatSystem.requestSkill(
@@ -257,7 +238,7 @@ public final class AiContext {
         skill.hitShape() == HitShape.PROJECTILE
             ? skill.rangePx()
             : Math.max(skill.rangePx(), skill.hitW());
-    return Math.max(PalConstants.MIN_ATTACK_RANGE_PX, reach) * 0.85f;
+    return Math.max(MonsterConstants.MIN_ATTACK_RANGE_PX, reach) * 0.85f;
   }
 
   BtStatus chaseThreat() {
@@ -266,15 +247,16 @@ public final class AiContext {
       return BtStatus.FAILURE;
     }
     Brain brain = brain();
-    brain.state = PalState.COMBAT;
-    brain.speedPxS = PalConstants.CHASE_SPEED_PX_S;
+    float speed = species().speedPxS() * MonsterConstants.CHASE_SPEED_MULT;
+    brain.state = MonsterState.COMBAT;
+    brain.speedPxS = speed;
 
     Position self = mPosition.get(artemisId);
     Position threat = mPosition.get(threatArtemisId);
     if (Sensing.hasLineOfSight(
         tileMap, tileOf(self.x), tileOf(self.y), tileOf(threat.x), tileOf(threat.y))) {
       clearPath();
-      steer(threat.x - self.x, threat.y - self.y, PalConstants.CHASE_SPEED_PX_S);
+      steer(threat.x - self.x, threat.y - self.y, speed);
       return BtStatus.RUNNING;
     }
     followOrRequestPath(threat.x, threat.y);
@@ -284,10 +266,10 @@ public final class AiContext {
   /** §9.1 Idle 의 앞부분 — 12타일 안의 walkable 타일로 배회한다. 배회가 끝나면 SUCCESS 로 Wait 에 넘긴다. */
   BtStatus wander() {
     Brain brain = brain();
-    if (brain.state == PalState.WAIT) {
+    if (brain.state == MonsterState.WAIT) {
       return BtStatus.SUCCESS;
     }
-    if (brain.state != PalState.WANDER) {
+    if (brain.state != MonsterState.WANDER) {
       if (!startWander(brain)) {
         beginWait(brain);
         return BtStatus.SUCCESS;
@@ -296,7 +278,7 @@ public final class AiContext {
     }
     brain.stateTicks++;
     PathComponent path = mPath.get(artemisId);
-    if (path.length == 0 || brain.stateTicks > PalConstants.WANDER_MAX_TICKS) {
+    if (path.length == 0 || brain.stateTicks > MonsterConstants.WANDER_MAX_TICKS) {
       beginWait(brain);
       return BtStatus.SUCCESS;
     }
@@ -310,40 +292,8 @@ public final class AiContext {
       brain.waitTicks--;
       return BtStatus.RUNNING;
     }
-    brain.state = PalState.IDLE;
+    brain.state = MonsterState.IDLE;
     return BtStatus.SUCCESS;
-  }
-
-  /** docs/m0-prompts.md 단계7 "FollowOwner(3~6타일, 떨어지면 경로 요청)". */
-  BtStatus followOwner() {
-    int ownerArtemisId = index.artemisIdOrMissing(mOwner.get(artemisId).ownerStableId);
-    if (ownerArtemisId < 0 || !mPosition.has(ownerArtemisId)) {
-      return BtStatus.FAILURE;
-    }
-    Brain brain = brain();
-    brain.state = PalState.FOLLOW;
-    brain.speedPxS = PalConstants.FOLLOW_SPEED_PX_S;
-
-    Position self = mPosition.get(artemisId);
-    Position owner = mPosition.get(ownerArtemisId);
-    float distancePx = (float) StrictMath.sqrt(distanceSquared(self, owner));
-    float minPx = PalConstants.FOLLOW_MIN_TILES * (float) SimConstants.TILE_SIZE_PX;
-    float maxPx = PalConstants.FOLLOW_MAX_TILES * (float) SimConstants.TILE_SIZE_PX;
-
-    if (distancePx <= minPx) {
-      clearPath();
-      stop();
-      return BtStatus.SUCCESS;
-    }
-    if (distancePx <= maxPx
-        && Sensing.hasLineOfSight(
-            tileMap, tileOf(self.x), tileOf(self.y), tileOf(owner.x), tileOf(owner.y))) {
-      clearPath();
-      steer(owner.x - self.x, owner.y - self.y, PalConstants.FOLLOW_SPEED_PX_S);
-      return BtStatus.RUNNING;
-    }
-    followOrRequestPath(owner.x, owner.y);
-    return BtStatus.RUNNING;
   }
 
   // ------------------------------------------------------------------ 보조
@@ -352,9 +302,9 @@ public final class AiContext {
     Position self = mPosition.get(artemisId);
     int selfTx = tileOf(self.x);
     int selfTy = tileOf(self.y);
-    int radius = PalConstants.WANDER_RADIUS_TILES;
+    int radius = MonsterConstants.WANDER_RADIUS_TILES;
 
-    for (int attempt = 0; attempt < PalConstants.WANDER_TARGET_ATTEMPTS; attempt++) {
+    for (int attempt = 0; attempt < MonsterConstants.WANDER_TARGET_ATTEMPTS; attempt++) {
       int targetTx = selfTx - radius + rng.nextInt(Rng.Stream.SPAWN, radius * 2 + 1);
       int targetTy = selfTy - radius + rng.nextInt(Rng.Stream.SPAWN, radius * 2 + 1);
       if (targetTx == selfTx && targetTy == selfTy) {
@@ -365,9 +315,9 @@ public final class AiContext {
       }
       if (pathfinder.requestPath(selfTx, selfTy, targetTx, targetTy)) {
         copyPathFromPathfinder();
-        brain.state = PalState.WANDER;
+        brain.state = MonsterState.WANDER;
         brain.stateTicks = 0;
-        brain.speedPxS = PalConstants.WANDER_SPEED_PX_S;
+        brain.speedPxS = species().speedPxS();
         return true;
       }
     }
@@ -375,10 +325,10 @@ public final class AiContext {
   }
 
   private void beginWait(Brain brain) {
-    brain.state = PalState.WAIT;
+    brain.state = MonsterState.WAIT;
     brain.stateTicks = 0;
-    int span = PalConstants.WAIT_MAX_TICKS - PalConstants.WAIT_MIN_TICKS + 1;
-    brain.waitTicks = PalConstants.WAIT_MIN_TICKS + rng.nextInt(Rng.Stream.SPAWN, span);
+    int span = MonsterConstants.WAIT_MAX_TICKS - MonsterConstants.WAIT_MIN_TICKS + 1;
+    brain.waitTicks = MonsterConstants.WAIT_MIN_TICKS + rng.nextInt(Rng.Stream.SPAWN, span);
     clearPath();
     stop();
   }
@@ -394,7 +344,7 @@ public final class AiContext {
       stop();
       return;
     }
-    brain.nextRepathTick = clock.tick() + PalConstants.REPATH_INTERVAL_TICKS;
+    brain.nextRepathTick = clock.tick() + MonsterConstants.REPATH_INTERVAL_TICKS;
 
     Position self = mPosition.get(artemisId);
     if (pathfinder.requestPath(tileOf(self.x), tileOf(self.y), tileOf(targetX), tileOf(targetY))) {

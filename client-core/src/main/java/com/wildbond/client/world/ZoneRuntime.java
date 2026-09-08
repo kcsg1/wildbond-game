@@ -16,8 +16,10 @@ import java.util.List;
 /**
  * 현재 존의 sim 을 만들고, 존을 넘어갈 때 새로 만든다 (docs/architecture.md D-16).
  *
- * <p>존 전환은 "sim 을 새로 만들고 플레이어 상태만 옮겨 싣는 것"이다 — 야생 팰·드롭 같은 존 로컬 상태는 버려진다. sim 자체는 존을 모른다(§6 규칙: 상태
- * 변경은 Command 로만). 여기서는 새 Sim 을 만들고 SpawnPlayer 를 한 번 넣을 뿐이다.
+ * <p>존 전환은 "sim 을 새로 만들고 플레이어 상태만 옮겨 싣는 것"이다 — 몬스터·드롭 같은 존 로컬 상태는 버려진다. sim 자체는 존을 모른다(§6 규칙: 상태
+ * 변경은 Command 로만). 여기서는 새 Sim 을 만들고 {@code SpawnPlayer + RestorePlayer} 를 넣을 뿐이다.
+ *
+ * <p>플레이어 부활(§3.2 "죽으면 5초 뒤 마을에서 부활")도 같은 절차다 — 시체가 sim 에서 제거되면 마을 sim 을 새로 열고 진행 상태를 실어 나른다.
  */
 public final class ZoneRuntime {
 
@@ -44,7 +46,7 @@ public final class ZoneRuntime {
     this.gameData = gameData;
   }
 
-  /** 첫 존을 연다. spawnTx/Ty 는 타일 좌표. */
+  /** 첫 존을 연다. spawnTx/Ty 는 타일 좌표. 들고 있던 진행 상태({@link #carry})를 새 sim 에 싣는다. */
   public void enter(Zone target, int spawnTx, int spawnTy) {
     zone = target;
     chunkLoader = new FileChunkLoader(config.chunksDir().resolve(target.chunkDir()));
@@ -55,6 +57,18 @@ public final class ZoneRuntime {
     float y = spawnTy * (float) TILE_PX + TILE_PX / 2f;
     sim.step(0, List.of(new Command.SpawnPlayer(x, y)));
     playerId = sim.view().stableIdAt(0);
+    sim.step(
+        1,
+        List.of(
+            new Command.RestorePlayer(
+                playerId,
+                carry.level(),
+                carry.exp(),
+                carry.hp(),
+                carry.mp(),
+                carry.coins(),
+                carry.itemIds(),
+                carry.counts())));
   }
 
   public Zone zone() {
@@ -73,20 +87,23 @@ public final class ZoneRuntime {
     return playerId;
   }
 
-  public int coins() {
-    return Math.max(0, carry.coins());
-  }
-
   /**
-   * 이번 틱 뒤에 존을 넘어가야 하는지 본다 — 가장자리를 넘었거나 포털 타일 위에 섰으면 전환한다.
+   * 이번 틱 뒤에 존을 넘어가야 하는지 본다 — 가장자리를 넘었거나 포털 타일 위에 섰으면 전환하고, 플레이어 시체가 제거됐으면 마을에서 부활시킨다.
    *
    * @return 전환했으면 참 (호출하는 쪽은 렌더러·ViewState 를 새 sim 에 다시 붙여야 한다)
    */
   public boolean checkTransition() {
     SimView view = sim.view();
     if (!isAlive(view)) {
-      return false;
+      carry = carry.revived();
+      enter(Zone.VILLAGE, Zone.VILLAGE_SPAWN_TX, Zone.VILLAGE_SPAWN_TY);
+      return true;
     }
+    if (view.health(playerId) > 0) {
+      // 살아 있는 동안 계속 갱신해 둔다 — 죽어서 제거된 뒤에는 읽을 수 없다.
+      carry = PlayerCarry.from(view, playerId);
+    }
+
     int tx = (int) StrictMath.floor(view.x(playerId) / TILE_PX);
     int ty = (int) StrictMath.floor(view.y(playerId) / TILE_PX);
 
@@ -94,9 +111,8 @@ public final class ZoneRuntime {
     if (edge != null) {
       Zone target = ZoneLink.target(zone, edge);
       if (target != null) {
-        carryFrom(view);
         int[] entry = entryTile(edge, tx, ty);
-        transitionTo(target, entry[0], entry[1]);
+        enter(target, entry[0], entry[1]);
         return true;
       }
     }
@@ -105,8 +121,7 @@ public final class ZoneRuntime {
     if (portal != null) {
       Zone target = zoneNamed(portal.props().get("zone"));
       if (target != null) {
-        carryFrom(view);
-        transitionTo(
+        enter(
             target,
             parseTile(portal.props().get("spawnTx"), tx),
             parseTile(portal.props().get("spawnTy"), ty));
@@ -123,27 +138,6 @@ public final class ZoneRuntime {
       }
     }
     return false;
-  }
-
-  private void transitionTo(Zone target, int spawnTx, int spawnTy) {
-    enter(target, spawnTx, spawnTy);
-    applyCarry();
-  }
-
-  private void carryFrom(SimView view) {
-    carry =
-        new PlayerCarry(
-            view.health(playerId), view.mana(playerId), Math.max(0, view.coins(playerId)));
-  }
-
-  /**
-   * 넘어온 뒤 HP/MP/소지금을 되돌려 준다.
-   *
-   * <p>sim 상태를 밖에서 직접 고치지 않는다는 규칙(§6)을 지키려면 원래는 명령이 있어야 하지만, M0 에는 "플레이어 상태를 지정한다"는 명령이 없다. 소지금은
-   * 클라이언트가 들고 표시만 하고, HP/MP 는 존을 넘으면 회복되는 것으로 둔다 — M1 세이브(§8.3)에서 제대로 실어 나른다.
-   */
-  private void applyCarry() {
-    // HP/MP 는 새 sim 의 기본값(만땅)을 그대로 쓴다. 소지금만 클라이언트가 이어서 보여 준다.
   }
 
   private ZoneLink.Edge edgeAt(int tx, int ty) {

@@ -7,7 +7,6 @@ import com.wildbond.sim.Rng;
 import com.wildbond.sim.TileMap;
 import com.wildbond.sim.components.Brain;
 import com.wildbond.sim.components.Dead;
-import com.wildbond.sim.components.Owner;
 import com.wildbond.sim.systems.bt.BtNode;
 
 /**
@@ -27,12 +26,10 @@ public final class AiSystem extends BaseSystem {
   private final CombatSystem combatSystem;
 
   private AiContext context;
-  private BtNode<AiContext> wildTree;
-  private BtNode<AiContext> partyTree;
+  private BtNode<AiContext> tree;
 
   private ComponentMapper<Brain> mBrain;
   private ComponentMapper<Dead> mDead;
-  private ComponentMapper<Owner> mOwner;
 
   public AiSystem(
       EntityIndex index,
@@ -55,10 +52,8 @@ public final class AiSystem extends BaseSystem {
   protected void initialize() {
     mBrain = world.getMapper(Brain.class);
     mDead = world.getMapper(Dead.class);
-    mOwner = world.getMapper(Owner.class);
     context = new AiContext(world, index, tileMap, gameData, rng, clock, pathfinder, combatSystem);
-    wildTree = PalBehaviors.wildTree();
-    partyTree = PalBehaviors.partyTree();
+    tree = MonsterBehaviors.tree();
   }
 
   @Override
@@ -79,12 +74,10 @@ public final class AiSystem extends BaseSystem {
         // 개체마다 감지 시점을 어긋나게 해 한 틱에 레이캐스트가 몰리지 않게 한다(§9.4 AI 예산).
         brain.nextSenseTick =
             clock.tick()
-                + PalConstants.SENSE_INTERVAL_TICKS
-                + stableId % PalConstants.SENSE_INTERVAL_TICKS;
+                + MonsterConstants.SENSE_INTERVAL_TICKS
+                + stableId % MonsterConstants.SENSE_INTERVAL_TICKS;
         context.sense();
       }
-
-      BtNode<AiContext> tree = mOwner.has(artemisId) ? partyTree : wildTree;
       tree.tick(context);
     }
   }

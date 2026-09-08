@@ -12,28 +12,26 @@ import com.wildbond.client.GameConfig;
 import com.wildbond.client.GameLoop;
 import com.wildbond.client.InputMapper;
 import com.wildbond.client.ViewState;
-import com.wildbond.client.render.CaptureEffects;
 import com.wildbond.client.render.ChunkRenderer;
 import com.wildbond.client.render.DebugOverlay;
 import com.wildbond.client.render.EntityRenderer;
 import com.wildbond.client.render.GameCamera;
 import com.wildbond.client.render.HitEffects;
-import com.wildbond.client.render.PartyHud;
+import com.wildbond.client.render.InventoryHud;
 import com.wildbond.client.render.PlaceholderSprites;
 import com.wildbond.client.render.StatusHud;
 import com.wildbond.client.world.ZoneRuntime;
 import com.wildbond.data.GameData;
 import com.wildbond.sim.Angle;
 import com.wildbond.sim.events.Damaged;
-import com.wildbond.sim.events.PalCaptureFailed;
-import com.wildbond.sim.events.PalCaptured;
+import com.wildbond.sim.events.LevelUp;
 import java.util.function.IntConsumer;
 
 /**
  * 메인 플레이 화면 — 존의 sim 을 고정 틱으로 돌리고(GameLoop), 청크·엔티티를 그리고, F3 로 디버그 오버레이를 켠다 (docs/architecture.md
  * §5.2~§5.4).
  *
- * <p>존을 넘어가면({@link ZoneRuntime#checkTransition}) sim 이 새로 만들어지므로, 그 sim 에 매달려 있는 것들
+ * <p>존을 넘어가거나 죽어서 부활하면({@link ZoneRuntime#checkTransition}) sim 이 새로 만들어지므로, 그 sim 에 매달려 있는 것들
  * (GameLoop·ChunkRenderer·ViewState·이벤트 구독)을 전부 다시 붙인다 (D-16).
  */
 public final class PlayScreen implements Screen {
@@ -51,9 +49,8 @@ public final class PlayScreen implements Screen {
   private final EntityRenderer entityRenderer;
   private final DebugOverlay debugOverlay;
   private final HitEffects hitEffects;
-  private final CaptureEffects captureEffects;
-  private final PartyHud partyHud;
   private final StatusHud statusHud;
+  private final InventoryHud inventoryHud;
 
   private final SpriteBatch batch = new SpriteBatch();
   private final GameCamera gameCamera = new GameCamera();
@@ -66,7 +63,7 @@ public final class PlayScreen implements Screen {
   private boolean showDebug = true;
 
   // 플레이어가 죽어 월드에서 제거되면(§4.1 Dead 5초 유예 후) ViewState 에서 사라진다. 그때 0,0 으로 떨어지면
-  // 청크가 없는 검은 화면이 되므로 마지막으로 본 위치를 그대로 유지한다. 사망·부활 처리 자체는 M0 범위 밖이다(§12).
+  // 청크가 없는 검은 화면이 되므로 마지막으로 본 위치를 그대로 유지한다 (T-010). 부활은 ZoneRuntime 이 처리한다.
   private float lastPlayerX;
   private float lastPlayerY;
 
@@ -77,8 +74,7 @@ public final class PlayScreen implements Screen {
       GameData gameData,
       GameConfig config,
       Texture tileset,
-      HitEffects hitEffects,
-      CaptureEffects captureEffects) {
+      HitEffects hitEffects) {
     this.inputMapper = inputMapper;
     this.viewState = viewState;
     this.zoneRuntime = zoneRuntime;
@@ -88,17 +84,17 @@ public final class PlayScreen implements Screen {
             config.tinyTownSheet(),
             config.tinyDungeonSheet(),
             config.lpcWalkSheet(),
-            config.lpcSlashSheet());
+            config.lpcSlashSheet(),
+            config.monsterSpritesDir());
     this.entityRenderer = new EntityRenderer(gameData, sprites);
     this.debugOverlay = new DebugOverlay();
     this.hitEffects = hitEffects;
-    this.captureEffects = captureEffects;
-    this.partyHud = new PartyHud(gameData);
     this.statusHud = new StatusHud();
+    this.inventoryHud = new InventoryHud(gameData);
     attachToZone();
   }
 
-  /** 새 존의 sim 에 루프·렌더러·구독을 다시 건다. 존 전환 때마다 호출된다. */
+  /** 새 존의 sim 에 루프·렌더러·구독을 다시 건다. 존 전환·부활 때마다 호출된다. */
   private void attachToZone() {
     if (chunkRenderer != null) {
       chunkRenderer.dispose();
@@ -113,10 +109,13 @@ public final class PlayScreen implements Screen {
             event -> {
               switch (event) {
                 case Damaged damaged -> hitEffects.onDamaged(damaged);
-                case PalCaptured captured -> captureEffects.onCaptured(captured);
-                case PalCaptureFailed failed -> captureEffects.onCaptureFailed(failed);
+                case LevelUp levelUp -> {
+                  if (levelUp.entityId() == playerId) {
+                    hitEffects.onLevelUp(levelUp.level(), lastPlayerX, lastPlayerY);
+                  }
+                }
                 default -> {
-                  // 이동·스폰·드롭 이벤트는 렌더가 ViewState 로 이미 보고 있다.
+                  // 이동·스폰·드롭·획득 이벤트는 렌더가 ViewState 로 이미 보고 있다.
                 }
               }
             });
@@ -160,7 +159,6 @@ public final class PlayScreen implements Screen {
     chunkRenderer.update(playerX, playerY);
     handleAimedInput(playerX, playerY);
     hitEffects.update(delta);
-    captureEffects.update(delta);
 
     Gdx.gl.glViewport(0, 0, windowWidth, windowHeight);
     ScreenUtils.clear(0f, 0f, 0f, 1f);
@@ -178,13 +176,11 @@ public final class PlayScreen implements Screen {
         chunkRenderer.props(),
         alpha,
         delta,
-        hitEffects,
-        captureEffects);
-    entityRenderer.renderCaptureShakes(batch, gameCamera.raw().combined, captureEffects);
+        hitEffects);
     hitEffects.renderNumbers(batch, gameCamera.raw().combined);
 
     Gdx.gl.glViewport(0, 0, windowWidth, windowHeight);
-    partyHud.render(batch, uiCamera.combined, viewState, windowHeight);
+    inventoryHud.render(batch, uiCamera.combined, viewState, playerId, windowHeight);
     statusHud.render(
         batch,
         uiCamera.combined,
@@ -214,7 +210,7 @@ public final class PlayScreen implements Screen {
   }
 
   /**
-   * 스페이스바·좌클릭 = 근접, 우클릭 = 원거리, 숫자 키 1 = 포획구 (docs/architecture.md D-17).
+   * 스페이스바·좌클릭 = 근접, 우클릭 = 원거리 (docs/architecture.md D-17).
    *
    * <p>{@code isKeyJustPressed}/{@code isButtonJustPressed} 는 렌더 프레임 하나에만 참이라 여기서 한 번만 읽고
    * InputMapper 의 래치로 넘긴다 — 고정 틱 루프 안(drain())에서 직접 읽으면 프레임당 여러 틱이 도는 경우 놓치거나 중복될 수 있다.
@@ -230,9 +226,6 @@ public final class PlayScreen implements Screen {
     }
     if (Gdx.input.isButtonJustPressed(Input.Buttons.RIGHT)) {
       queueAimed(inputMapper::queueRangedSkill, playerX, playerY);
-    }
-    if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_1)) {
-      queueAimed(inputMapper::queueThrowSphere, playerX, playerY);
     }
   }
 
@@ -268,8 +261,8 @@ public final class PlayScreen implements Screen {
     entityRenderer.dispose();
     debugOverlay.dispose();
     hitEffects.dispose();
-    partyHud.dispose();
     statusHud.dispose();
+    inventoryHud.dispose();
     sprites.dispose();
     batch.dispose();
     tileset.dispose();

@@ -7,7 +7,6 @@ import com.wildbond.client.GameConfig;
 import com.wildbond.client.InputMapper;
 import com.wildbond.client.ViewState;
 import com.wildbond.client.WildbondGame;
-import com.wildbond.client.render.CaptureEffects;
 import com.wildbond.client.render.HitEffects;
 import com.wildbond.client.world.Zone;
 import com.wildbond.client.world.ZoneRuntime;
@@ -20,11 +19,6 @@ import java.io.UncheckedIOException;
  * "BootScreen → PlayScreen").
  */
 public final class BootScreen implements Screen {
-
-  /** 마을 한가운데 — village.tmx 의 십자 흙길이 만나는 지점. */
-  private static final int START_TILE_X = 32;
-
-  private static final int START_TILE_Y = 32;
 
   private final WildbondGame game;
   private final GameConfig config;
@@ -40,7 +34,7 @@ public final class BootScreen implements Screen {
 
     // 마을에서 시작한다 (docs/architecture.md D-16). 십자로 한가운데 광장.
     ZoneRuntime zoneRuntime = new ZoneRuntime(config, gameData);
-    zoneRuntime.enter(Zone.VILLAGE, START_TILE_X, START_TILE_Y);
+    zoneRuntime.enter(Zone.VILLAGE, Zone.VILLAGE_SPAWN_TX, Zone.VILLAGE_SPAWN_TY);
 
     InputMapper inputMapper = new InputMapper();
     inputMapper.setControlledEntity(zoneRuntime.playerId());
@@ -49,21 +43,12 @@ public final class BootScreen implements Screen {
     viewState.capture(zoneRuntime.sim().view());
 
     HitEffects hitEffects = new HitEffects();
-    CaptureEffects captureEffects = new CaptureEffects();
 
     Texture tileset =
         new Texture(Gdx.files.absolute(config.tilesetFile().toAbsolutePath().toString()));
 
     game.setScreen(
-        new PlayScreen(
-            inputMapper,
-            viewState,
-            zoneRuntime,
-            gameData,
-            config,
-            tileset,
-            hitEffects,
-            captureEffects));
+        new PlayScreen(inputMapper, viewState, zoneRuntime, gameData, config, tileset, hitEffects));
   }
 
   private GameData loadGameData() {

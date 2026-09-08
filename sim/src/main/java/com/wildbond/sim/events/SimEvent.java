@@ -6,7 +6,7 @@ public sealed interface SimEvent
         EntityMoved,
         Damaged,
         Died,
-        PalCaptured,
-        PalCaptureFailed,
         ItemDropped,
-        CoinsPicked {}
+        CoinsPicked,
+        ItemPicked,
+        LevelUp {}

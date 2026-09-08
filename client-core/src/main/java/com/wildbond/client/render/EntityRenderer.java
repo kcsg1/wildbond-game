@@ -9,6 +9,8 @@ import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.utils.Disposable;
 import com.wildbond.client.ViewState;
 import com.wildbond.data.GameData;
+import com.wildbond.data.Item;
+import com.wildbond.data.ItemCategory;
 import com.wildbond.data.chunk.ChunkObject;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -18,8 +20,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * ViewState 를 Y-정렬해 그린다 (docs/architecture.md §5.3). 스프라이트는 {@link PlaceholderSprites} 가 프로그램으로 그린
- * 임시 그림이다 — 플레이어 32×48 사람, 팰은 종 속성 색 크리처(대형은 64×64 로 확대), 포획구는 그림자 + 가상 높이 z.
+ * ViewState 를 Y-정렬해 그린다 (docs/architecture.md §5.3). 플레이어는 LPC 시트, 몬스터는 종별 낱장 그림(footprint 2 면
+ * 64×64), 전리품은 동전/주머니 아이콘이다 — 그림은 {@link PlaceholderSprites} 가 공급한다.
  *
  * <p>바라보는 방향과 걷기 프레임은 sim 이 아니라 <b>틱 사이 위치 변화</b>에서 뽑는다 — 렌더 전용 정보라 sim 상태를 늘리지 않는다(§6 규칙 3).
  * prev→cur 를 alpha 로 보간해 60fps 에서 20Hz 틱이 떨리지 않게 한다.
@@ -38,10 +40,15 @@ public final class EntityRenderer implements Disposable {
   /** 피격 3프레임 동안 입히는 붉은 틴트 (단계 6 의 "흰 텍스처로 교체"를 스프라이트에 맞게 바꾼 것). */
   private static final Color HIT_TINT = new Color(1f, 0.45f, 0.45f, 1f);
 
+  private static final Color COIN_FACE = Color.valueOf("F2C23EFF");
+  private static final Color COIN_EDGE = Color.valueOf("8C6A14FF");
+  private static final Color POUCH_BODY = Color.valueOf("8B5A2BFF");
+  private static final Color POUCH_TIE = Color.valueOf("E0C070FF");
+
   private final GameData gameData;
   private final PlaceholderSprites sprites;
 
-  /** 머리 위 HP 바와 쓰러짐 연출에 쓰는 1×1 흰 픽셀. */
+  /** 머리 위 HP 바·전리품 아이콘·쓰러짐 연출에 쓰는 1×1 흰 픽셀. */
   private final Texture pixel = makePixel();
 
   private final List<ViewState.Snapshot> sortBuffer = new ArrayList<>();
@@ -55,7 +62,7 @@ public final class EntityRenderer implements Disposable {
   private final Map<Integer, Float> slashTimer = new HashMap<>();
 
   private int lastRenderCalls;
-  private float coinBobPhase;
+  private float bobPhase;
 
   public EntityRenderer(GameData gameData, PlaceholderSprites sprites) {
     this.gameData = gameData;
@@ -83,9 +90,8 @@ public final class EntityRenderer implements Disposable {
       List<ChunkObject> props,
       float alpha,
       float deltaSeconds,
-      HitEffects hitEffects,
-      CaptureEffects captureEffects) {
-    coinBobPhase += deltaSeconds * 4f;
+      HitEffects hitEffects) {
+    bobPhase += deltaSeconds * 4f;
     advanceSlashTimers(deltaSeconds);
     sortBuffer.clear();
     sortBuffer.addAll(viewState.current());
@@ -101,7 +107,6 @@ public final class EntityRenderer implements Disposable {
       float prevY = viewState.prevY(snapshot.id(), snapshot.y());
       float x = lerp(prevX, snapshot.x(), alpha);
       float y = lerp(prevY, snapshot.y(), alpha);
-      float z = lerp(viewState.prevZ(snapshot.id(), snapshot.z()), snapshot.z(), alpha);
 
       while (propIndex < props.size() && propAnchorY(props.get(propIndex)) <= y) {
         drawProp(batch, props.get(propIndex));
@@ -112,7 +117,7 @@ public final class EntityRenderer implements Disposable {
           advanceGait(snapshot.id(), snapshot.x() - prevX, snapshot.y() - prevY, deltaSeconds);
       boolean flashing = hitEffects.isFlashing(snapshot.id());
       batch.setColor(flashing ? HIT_TINT : Color.WHITE);
-      drawEntity(batch, snapshot, x, y, z, frame, captureEffects);
+      drawEntity(batch, snapshot, x, y, frame);
       batch.setColor(Color.WHITE);
     }
     while (propIndex < props.size()) {
@@ -172,7 +177,7 @@ public final class EntityRenderer implements Disposable {
               RenderConstants.TILE_PX,
               RenderConstants.TILE_PX);
       default -> {
-        // 모르는 오브젝트 종류는 그리지 않는다 (스폰 포인트 등 보이지 않아야 하는 것도 있다).
+        // 모르는 오브젝트 종류는 그리지 않는다 (스폰 포인트·포털처럼 보이지 않아야 하는 것도 있다).
       }
     }
   }
@@ -222,7 +227,7 @@ public final class EntityRenderer implements Disposable {
     }
   }
 
-  /** 사라진 엔티티의 방향·타이머를 흘려보낸다 — 팰이 계속 스폰·회수되므로 놔두면 맵이 자란다. */
+  /** 사라진 엔티티의 방향·타이머를 흘려보낸다 — 몬스터가 계속 스폰·회수되므로 놔두면 맵이 자란다. */
   private void forgetGoneEntities(ViewState viewState) {
     Iterator<Map.Entry<Integer, Integer>> it = facing.entrySet().iterator();
     while (it.hasNext()) {
@@ -236,13 +241,7 @@ public final class EntityRenderer implements Disposable {
   }
 
   private void drawEntity(
-      SpriteBatch batch,
-      ViewState.Snapshot snapshot,
-      float anchorX,
-      float anchorY,
-      float z,
-      int frame,
-      CaptureEffects captureEffects) {
+      SpriteBatch batch, ViewState.Snapshot snapshot, float anchorX, float anchorY, int frame) {
     switch (snapshot.kind()) {
       case PLAYER -> drawPlayer(batch, snapshot.id(), anchorX, anchorY, frame);
       case DUMMY ->
@@ -253,30 +252,8 @@ public final class EntityRenderer implements Disposable {
               anchorY,
               PlaceholderSprites.CHARACTER_PX,
               PlaceholderSprites.CHARACTER_PX);
-      case PAL -> {
-        if (captureEffects.isPalHidden(snapshot.id())) {
-          return; // 포획구가 흔들리는 동안에는 숨는다.
-        }
-        float size = palFootprint(snapshot.speciesId()) * (float) RenderConstants.TILE_PX;
-        float dying = snapshot.deathProgress();
-        if (dying > 0f) {
-          // 쓰러지는 중 — 점점 납작해지고 흐려진다. 다 쓰러지면 동전만 남는다.
-          batch.setColor(1f, 1f, 1f, Math.max(0f, 1f - dying));
-          float squashed = size * Math.max(0.15f, 1f - dying);
-          batch.draw(
-              sprites.pal(snapshot.speciesId()),
-              anchorX - size / 2f,
-              anchorY - squashed,
-              size,
-              squashed);
-          batch.setColor(Color.WHITE);
-          return;
-        }
-        drawSprite(batch, sprites.pal(snapshot.speciesId()), anchorX, anchorY, size, size);
-        drawHealthBar(batch, snapshot, anchorX, anchorY - size);
-      }
-      case DROP -> drawCoin(batch, anchorX, anchorY);
-      case SPHERE -> drawSphere(batch, anchorX, anchorY, z);
+      case MONSTER -> drawMonster(batch, snapshot, anchorX, anchorY, frame);
+      case DROP -> drawDrop(batch, snapshot, anchorX, anchorY);
       case UNKNOWN -> {
         // 렌더가 모르는 종류는 그리지 않는다.
       }
@@ -306,6 +283,29 @@ public final class EntityRenderer implements Disposable {
     drawSprite(batch, region, anchorX, bottom, size, size);
   }
 
+  /** 몬스터 — 낱장 그림은 옆모습이라 왼쪽으로 움직이면 좌우 반전, 걷는 동안 1px 들썩인다. 죽으면 납작해지며 사라진다. */
+  private void drawMonster(
+      SpriteBatch batch, ViewState.Snapshot snapshot, float anchorX, float anchorY, int frame) {
+    float size = footprint(snapshot.speciesId()) * (float) RenderConstants.TILE_PX;
+    boolean facingLeft =
+        facing.getOrDefault(snapshot.id(), PlaceholderSprites.DIR_RIGHT)
+            == PlaceholderSprites.DIR_LEFT;
+    TextureRegion region = sprites.monster(snapshot.speciesId(), facingLeft);
+
+    float dying = snapshot.deathProgress();
+    if (dying > 0f) {
+      // 쓰러지는 중 — 점점 납작해지고 흐려진다. 다 쓰러지면 전리품만 남는다.
+      batch.setColor(1f, 1f, 1f, Math.max(0f, 1f - dying));
+      float squashed = size * Math.max(0.15f, 1f - dying);
+      batch.draw(region, anchorX - size / 2f, anchorY - squashed, size, squashed);
+      batch.setColor(Color.WHITE);
+      return;
+    }
+    float bob = frame % 2 == 1 ? -1f : 0f;
+    drawSprite(batch, region, anchorX, anchorY + bob, size, size);
+    drawHealthBar(batch, snapshot, anchorX, anchorY - size);
+  }
+
   /** 몬스터 머리 위 HP 바 — 다치지 않았으면 그리지 않는다(화면이 바로 지저분해진다). */
   private void drawHealthBar(
       SpriteBatch batch, ViewState.Snapshot snapshot, float centerX, float topY) {
@@ -327,26 +327,33 @@ public final class EntityRenderer implements Disposable {
     batch.setColor(Color.WHITE);
   }
 
-  /** 바닥에 떨어진 동전 — 살짝 위아래로 흔들려 눈에 띄게 한다. */
-  private void drawCoin(SpriteBatch batch, float x, float y) {
-    float bob = (float) StrictMath.sin(coinBobPhase) * 2f;
+  /** 바닥에 떨어진 전리품 — 동전은 금화, 나머지는 가죽 주머니. 살짝 위아래로 흔들려 눈에 띄게 한다. */
+  private void drawDrop(SpriteBatch batch, ViewState.Snapshot snapshot, float x, float y) {
+    float bob = (float) StrictMath.sin(bobPhase) * 2f;
     int size = 10;
     batch.setColor(0f, 0f, 0f, 0.35f);
     batch.draw(pixel, x - size / 2f, y - 3f, size, 3f);
-    batch.setColor(Color.valueOf("F2C23EFF"));
-    batch.draw(pixel, x - size / 2f, y - size - 3f + bob, size, size);
-    batch.setColor(Color.valueOf("8C6A14FF"));
-    batch.draw(pixel, x - size / 2f + 3f, y - size - 1f + bob, 4f, size - 4f);
+
+    if (isCurrency(snapshot.dropItemId())) {
+      batch.setColor(COIN_FACE);
+      batch.draw(pixel, x - size / 2f, y - size - 3f + bob, size, size);
+      batch.setColor(COIN_EDGE);
+      batch.draw(pixel, x - size / 2f + 3f, y - size - 1f + bob, 4f, size - 4f);
+    } else {
+      batch.setColor(POUCH_BODY);
+      batch.draw(pixel, x - size / 2f, y - size - 2f + bob, size, size - 2f);
+      batch.setColor(POUCH_TIE);
+      batch.draw(pixel, x - size / 2f + 2f, y - size - 3f + bob, size - 4f, 2f);
+    }
     batch.setColor(Color.WHITE);
   }
 
-  /** 지면에 그림자를, 그 위 z 만큼 띄워 포획구를 그린다 (§3.2 "가상 높이 z"). */
-  private void drawSphere(SpriteBatch batch, float x, float y, float z) {
-    int shadow = sprites.shadowPx();
-    int ball = sprites.spherePx();
-    batch.draw(sprites.shadow(), x - shadow / 2f, y - shadow / 2f, shadow, shadow);
-    // 월드는 yDown 이므로 높이 z 만큼 위로 = y 가 작아지는 방향.
-    batch.draw(sprites.sphere(), x - ball / 2f, y - z - ball, ball, ball);
+  private boolean isCurrency(int itemId) {
+    if (itemId <= 0) {
+      return true;
+    }
+    Item item = gameData.item(itemId);
+    return item.category() == ItemCategory.CURRENCY;
   }
 
   private static void drawSprite(
@@ -359,29 +366,8 @@ public final class EntityRenderer implements Disposable {
     batch.draw(region, anchorX - width / 2f, anchorY - height, width, height); // 발 위치 기준(§5.3)
   }
 
-  private int palFootprint(int speciesId) {
-    return speciesId < 0 ? 1 : gameData.palSpecies(speciesId).footprint();
-  }
-
-  /** 포획구 흔들림 연출 — 스프라이트를 이 클래스가 들고 있으므로 그리기도 여기서 한다. */
-  public void renderCaptureShakes(SpriteBatch batch, Matrix4 projection, CaptureEffects effects) {
-    if (effects.activeCount() == 0) {
-      return;
-    }
-    int ball = sprites.spherePx();
-    batch.setProjectionMatrix(projection);
-    batch.begin();
-    for (int i = 0; i < effects.activeCount(); i++) {
-      batch.setColor(1f, 1f, 1f, effects.alpha(i));
-      batch.draw(
-          sprites.sphere(),
-          effects.x(i) + effects.shakeOffsetX(i) - ball / 2f,
-          effects.y(i) - ball,
-          ball,
-          ball);
-    }
-    batch.setColor(Color.WHITE);
-    batch.end();
+  private int footprint(int speciesId) {
+    return speciesId < 0 ? 1 : gameData.monster(speciesId).footprint();
   }
 
   private static float lerp(float a, float b, float t) {

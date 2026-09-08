@@ -1,0 +1,7 @@
+# docs/architecture.md §3.1 MonsterSpecies. 성향(§3.2): passive 는 시야로 안 잡고 맞으면 도망, aggressive 는 시야에 들어오면 추격.
+# footprint 1 = 32×32, 2 = 64×64. speed_px_s 는 배회 속도이며 추격은 ×1.8, 도주는 ×2.3.
+id,name_key,level,element,temperament,base_hp,base_atk,base_def,speed_px_s,footprint,skills,exp_yield,sprite
+int,string,int(1..200),enum:Element,enum:Temperament,int(1..100000),int(0..5000),int(0..5000),float(8..400),int(1..2),ref:Skill[]?,int(0..100000),string
+1,monster.deer,1,none,passive,40,5,5,52,1,,8,sprites/monsters/deer
+2,monster.wolf,4,none,aggressive,90,22,12,60,1,1,30,sprites/monsters/wolf
+3,monster.boulder_golem,8,ground,aggressive,260,40,45,36,2,1,120,sprites/monsters/boulder_golem

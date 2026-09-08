@@ -10,4 +10,5 @@ public record GameConfig(
     Path tinyTownSheet,
     Path tinyDungeonSheet,
     Path lpcWalkSheet,
-    Path lpcSlashSheet) {}
+    Path lpcSlashSheet,
+    Path monsterSpritesDir) {}

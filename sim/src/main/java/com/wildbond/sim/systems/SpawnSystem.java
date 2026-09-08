@@ -3,7 +3,7 @@ package com.wildbond.sim.systems;
 import com.artemis.BaseSystem;
 import com.artemis.ComponentMapper;
 import com.wildbond.data.GameData;
-import com.wildbond.data.PalSpecies;
+import com.wildbond.data.Monster;
 import com.wildbond.data.TileCollision;
 import com.wildbond.data.chunk.Chunk;
 import com.wildbond.data.chunk.ChunkCoord;
@@ -12,58 +12,56 @@ import com.wildbond.data.chunk.ChunkObject;
 import com.wildbond.sim.Rng;
 import com.wildbond.sim.SpawnRules;
 import com.wildbond.sim.TileMap;
-import com.wildbond.sim.components.Owner;
-import com.wildbond.sim.components.PalData;
+import com.wildbond.sim.components.Dead;
+import com.wildbond.sim.components.MonsterData;
 import com.wildbond.sim.components.PlayerTag;
 import com.wildbond.sim.components.Position;
 import com.wildbond.sim.components.SpawnOrigin;
 import com.wildbond.sim.events.EventBus;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Function;
 
 /**
- * §4.1 시스템 10번 — 청크 활성/휴면과 야생 스폰 (docs/architecture.md §9.1, docs/m0-prompts.md 단계7).
+ * §4.1 시스템 8번 — 청크 활성/휴면, 스폰표 롤, 리스폰 (docs/architecture.md §9.2).
  *
- * <p>M0 임시 스폰 규칙: 활성 청크(플레이어 청크 반경 {@value PalConstants#ACTIVE_CHUNK_RADIUS})가 새로 켜지면 그 청크에 종 1가지를
- * 골라 {@value PalConstants#PALS_PER_CHUNK} 마리를, 플레이어에서 {@value
- * PalConstants#MIN_SPAWN_DISTANCE_TILES} 타일 이상 떨어진 walkable 타일에 만든다. 청크가 휴면하면 그 청크에서 나온 야생 팰을 회수한다
- * — 포획되어 주인이 생긴 팰은 남긴다.
- *
- * <p>SpawnTable(§9.1)은 아직 데이터 테이블에 없다. 종은 {@code PalSpecies} 전체에서 id 오름차순으로 굴린다.
+ * <p>플레이어 청크 반경 {@value MonsterConstants#ACTIVE_CHUNK_RADIUS} 의 청크가 새로 켜지면 스폰표대로 채우고, 그 뒤로는 죽어서 빈
+ * 자리를 리스폰 간격마다 한 마리씩 다시 채운다 — 사냥터에 몬스터가 계속 있게. 청크가 휴면하면 그 청크의 몬스터를 회수한다.
  */
 public final class SpawnSystem extends BaseSystem {
 
   private static final int MAX_ACTIVE_CHUNKS =
-      (2 * PalConstants.ACTIVE_CHUNK_RADIUS + 1) * (2 * PalConstants.ACTIVE_CHUNK_RADIUS + 1);
+      (2 * MonsterConstants.ACTIVE_CHUNK_RADIUS + 1)
+          * (2 * MonsterConstants.ACTIVE_CHUNK_RADIUS + 1);
 
   private final EntityIndex index;
   private final TileMap tileMap;
   private final GameData gameData;
   private final Rng rng;
   private final EventBus eventBus;
+  private final SimClock clock;
   private final SpawnRules rules;
 
   /** 존이 스폰 포인트를 쓸 때(굴) 필요한 청크 조회. 없으면 walkable 타일에서 고른다. */
-  private final java.util.function.Function<ChunkCoord, Chunk> chunkLoader;
+  private final Function<ChunkCoord, Chunk> chunkLoader;
 
-  private PalFactory palFactory;
+  private MonsterFactory factory;
   private ComponentMapper<Position> mPosition;
   private ComponentMapper<PlayerTag> mPlayer;
-  private ComponentMapper<PalData> mPal;
-  private ComponentMapper<Owner> mOwner;
+  private ComponentMapper<MonsterData> mMonster;
+  private ComponentMapper<Dead> mDead;
   private ComponentMapper<SpawnOrigin> mSpawnOrigin;
 
   /** 종 id 오름차순 고정 목록 — GameData 의 Map 순회 순서에 기대지 않는다(§4.3). */
   private int[] speciesIds = new int[0];
 
   private final long[] activeChunks = new long[MAX_ACTIVE_CHUNKS];
+  private final int[] nextRespawnTick = new int[MAX_ACTIVE_CHUNKS];
   private int activeChunkCount;
   private final long[] nextActiveChunks = new long[MAX_ACTIVE_CHUNKS];
   private int nextActiveChunkCount;
 
-  /** 후보 타일 스크래치 — 청크 하나(32×32)를 담는다. */
   private final int[] candidateTx = new int[ChunkFormat.SIZE * ChunkFormat.SIZE];
-
   private final int[] candidateTy = new int[ChunkFormat.SIZE * ChunkFormat.SIZE];
   private final List<Integer> despawnScratch = new ArrayList<>();
 
@@ -73,13 +71,15 @@ public final class SpawnSystem extends BaseSystem {
       GameData gameData,
       Rng rng,
       EventBus eventBus,
+      SimClock clock,
       SpawnRules rules,
-      java.util.function.Function<ChunkCoord, Chunk> chunkLoader) {
+      Function<ChunkCoord, Chunk> chunkLoader) {
     this.index = index;
     this.tileMap = tileMap;
     this.gameData = gameData;
     this.rng = rng;
     this.eventBus = eventBus;
+    this.clock = clock;
     this.rules = rules;
     this.chunkLoader = chunkLoader;
   }
@@ -88,15 +88,15 @@ public final class SpawnSystem extends BaseSystem {
   protected void initialize() {
     mPosition = world.getMapper(Position.class);
     mPlayer = world.getMapper(PlayerTag.class);
-    mPal = world.getMapper(PalData.class);
-    mOwner = world.getMapper(Owner.class);
+    mMonster = world.getMapper(MonsterData.class);
+    mDead = world.getMapper(Dead.class);
     mSpawnOrigin = world.getMapper(SpawnOrigin.class);
-    palFactory = new PalFactory(world, index, gameData, eventBus);
+    factory = new MonsterFactory(world, index, gameData, eventBus);
 
     if (rules.speciesIds().length > 0) {
-      speciesIds = rules.speciesIds().clone(); // 존이 정한 종만 나온다 (D-16)
+      speciesIds = rules.speciesIds().clone();
     } else {
-      List<PalSpecies> all = new ArrayList<>(gameData.allPalSpecies());
+      List<Monster> all = new ArrayList<>(gameData.allMonster());
       all.sort((a, b) -> Integer.compare(a.id(), b.id()));
       speciesIds = new int[all.size()];
       for (int i = 0; i < all.size(); i++) {
@@ -122,10 +122,7 @@ public final class SpawnSystem extends BaseSystem {
 
     collectActiveChunks(playerCx, playerCy);
     despawnDormantChunks();
-    spawnNewlyActiveChunks(playerTx, playerTy);
-
-    System.arraycopy(nextActiveChunks, 0, activeChunks, 0, nextActiveChunkCount);
-    activeChunkCount = nextActiveChunkCount;
+    refillActiveChunks(playerTx, playerTy);
   }
 
   private int findPlayer() {
@@ -141,7 +138,7 @@ public final class SpawnSystem extends BaseSystem {
 
   private void collectActiveChunks(int playerCx, int playerCy) {
     nextActiveChunkCount = 0;
-    int radius = PalConstants.ACTIVE_CHUNK_RADIUS;
+    int radius = MonsterConstants.ACTIVE_CHUNK_RADIUS;
     for (int cy = playerCy - radius; cy <= playerCy + radius; cy++) {
       for (int cx = playerCx - radius; cx <= playerCx + radius; cx++) {
         nextActiveChunks[nextActiveChunkCount++] = pack(cx, cy);
@@ -154,7 +151,7 @@ public final class SpawnSystem extends BaseSystem {
     int n = index.size();
     for (int i = 0; i < n; i++) {
       int artemisId = index.artemisIdAt(i);
-      if (!mPal.has(artemisId) || mOwner.has(artemisId) || !mSpawnOrigin.has(artemisId)) {
+      if (!mMonster.has(artemisId) || !mSpawnOrigin.has(artemisId)) {
         continue;
       }
       SpawnOrigin origin = mSpawnOrigin.get(artemisId);
@@ -169,25 +166,60 @@ public final class SpawnSystem extends BaseSystem {
     }
   }
 
-  private void spawnNewlyActiveChunks(int playerTx, int playerTy) {
+  /**
+   * 활성 청크마다: 처음 켜졌으면 표대로 채우고, 이미 켜져 있던 청크는 리스폰 간격이 지났을 때 살아 있는 수가 모자라면 한 마리 보충한다. 활성 목록을 다음 틱용 배열로
+   * 옮기면서 리스폰 타이머도 같이 옮긴다.
+   */
+  private void refillActiveChunks(int playerTx, int playerTy) {
+    int[] carriedTimers = new int[MAX_ACTIVE_CHUNKS];
     for (int i = 0; i < nextActiveChunkCount; i++) {
       long chunk = nextActiveChunks[i];
-      if (isPreviouslyActive(chunk)) {
+      int previous = indexOfActive(chunk);
+      int chunkX = unpackX(chunk);
+      int chunkY = unpackY(chunk);
+
+      if (previous < 0) {
+        spawnMany(chunkX, chunkY, playerTx, playerTy, rules.perChunk());
+        carriedTimers[i] = clock.tick() + rules.respawnTicks();
         continue;
       }
-      spawnInChunk(unpackX(chunk), unpackY(chunk), playerTx, playerTy);
+      carriedTimers[i] = nextRespawnTick[previous];
+      if (clock.tick() < carriedTimers[i]) {
+        continue;
+      }
+      if (aliveFrom(chunkX, chunkY) < rules.perChunk()) {
+        spawnMany(chunkX, chunkY, playerTx, playerTy, 1);
+      }
+      carriedTimers[i] = clock.tick() + rules.respawnTicks();
     }
+    System.arraycopy(nextActiveChunks, 0, activeChunks, 0, nextActiveChunkCount);
+    System.arraycopy(carriedTimers, 0, nextRespawnTick, 0, nextActiveChunkCount);
+    activeChunkCount = nextActiveChunkCount;
   }
 
-  private void spawnInChunk(int chunkX, int chunkY, int playerTx, int playerTy) {
+  private int aliveFrom(int chunkX, int chunkY) {
+    int alive = 0;
+    int n = index.size();
+    for (int i = 0; i < n; i++) {
+      int artemisId = index.artemisIdAt(i);
+      if (!mMonster.has(artemisId) || mDead.has(artemisId) || !mSpawnOrigin.has(artemisId)) {
+        continue;
+      }
+      SpawnOrigin origin = mSpawnOrigin.get(artemisId);
+      if (origin.chunkX == chunkX && origin.chunkY == chunkY) {
+        alive++;
+      }
+    }
+    return alive;
+  }
+
+  private void spawnMany(int chunkX, int chunkY, int playerTx, int playerTy, int count) {
     int candidates = collectSpawnableTiles(chunkX, chunkY, playerTx, playerTy);
     if (candidates == 0) {
       return;
     }
-    int speciesId = speciesIds[rng.nextInt(Rng.Stream.SPAWN, speciesIds.length)];
-    int levelSpan = PalConstants.MAX_PAL_LEVEL - PalConstants.MIN_PAL_LEVEL + 1;
-
-    for (int i = 0; i < rules.palsPerChunk() && candidates > 0; i++) {
+    for (int i = 0; i < count && candidates > 0; i++) {
+      int speciesId = speciesIds[rng.nextInt(Rng.Stream.SPAWN, speciesIds.length)];
       int pick = rng.nextInt(Rng.Stream.SPAWN, candidates);
       int tileX = candidateTx[pick];
       int tileY = candidateTy[pick];
@@ -195,10 +227,9 @@ public final class SpawnSystem extends BaseSystem {
       candidateTx[pick] = candidateTx[candidates];
       candidateTy[pick] = candidateTy[candidates];
 
-      int level = PalConstants.MIN_PAL_LEVEL + rng.nextInt(Rng.Stream.SPAWN, levelSpan);
       float x = tileX * (float) SimConstants.TILE_SIZE_PX + SimConstants.TILE_SIZE_PX / 2f;
       float y = tileY * (float) SimConstants.TILE_SIZE_PX + SimConstants.TILE_SIZE_PX / 2f;
-      palFactory.spawn(x, y, speciesId, level, rng, chunkX, chunkY);
+      factory.spawn(x, y, speciesId, chunkX, chunkY);
     }
   }
 
@@ -232,7 +263,6 @@ public final class SpawnSystem extends BaseSystem {
     return count;
   }
 
-  /** 맵에 찍어 둔 {@code spawn_point} 오브젝트 자리만 모은다. 굴처럼 "방 안에만" 두고 싶을 때 쓴다. */
   private int collectSpawnPoints(int chunkX, int chunkY) {
     if (chunkLoader == null) {
       return 0;
@@ -253,13 +283,13 @@ public final class SpawnSystem extends BaseSystem {
     return count;
   }
 
-  private boolean isPreviouslyActive(long chunk) {
+  private int indexOfActive(long chunk) {
     for (int i = 0; i < activeChunkCount; i++) {
       if (activeChunks[i] == chunk) {
-        return true;
+        return i;
       }
     }
-    return false;
+    return -1;
   }
 
   private boolean isNextActive(long chunk) {

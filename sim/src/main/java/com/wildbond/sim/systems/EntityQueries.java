@@ -3,19 +3,18 @@ package com.wildbond.sim.systems;
 import com.artemis.ComponentMapper;
 import com.artemis.World;
 import com.wildbond.sim.EntityKind;
-import com.wildbond.sim.SimView;
 import com.wildbond.sim.components.Dead;
 import com.wildbond.sim.components.DeathAnim;
 import com.wildbond.sim.components.DroppedItem;
 import com.wildbond.sim.components.DummyTag;
+import com.wildbond.sim.components.Experience;
 import com.wildbond.sim.components.Health;
+import com.wildbond.sim.components.Inventory;
 import com.wildbond.sim.components.Mana;
-import com.wildbond.sim.components.Owner;
-import com.wildbond.sim.components.PalData;
-import com.wildbond.sim.components.Party;
+import com.wildbond.sim.components.MonsterData;
 import com.wildbond.sim.components.PlayerTag;
 import com.wildbond.sim.components.Position;
-import com.wildbond.sim.components.Sphere;
+import com.wildbond.sim.components.Stats;
 import com.wildbond.sim.components.Wallet;
 
 /**
@@ -29,12 +28,12 @@ public final class EntityQueries {
   private final ComponentMapper<Health> mHealth;
   private final ComponentMapper<PlayerTag> mPlayer;
   private final ComponentMapper<DummyTag> mDummy;
-  private final ComponentMapper<PalData> mPal;
-  private final ComponentMapper<Owner> mOwner;
-  private final ComponentMapper<Party> mParty;
-  private final ComponentMapper<Sphere> mSphere;
+  private final ComponentMapper<MonsterData> mMonster;
+  private final ComponentMapper<Stats> mStats;
   private final ComponentMapper<Mana> mMana;
   private final ComponentMapper<Wallet> mWallet;
+  private final ComponentMapper<Experience> mExperience;
+  private final ComponentMapper<Inventory> mInventory;
   private final ComponentMapper<DroppedItem> mDrop;
   private final ComponentMapper<DeathAnim> mDeathAnim;
   private final ComponentMapper<Dead> mDead;
@@ -45,12 +44,12 @@ public final class EntityQueries {
     this.mHealth = world.getMapper(Health.class);
     this.mPlayer = world.getMapper(PlayerTag.class);
     this.mDummy = world.getMapper(DummyTag.class);
-    this.mPal = world.getMapper(PalData.class);
-    this.mOwner = world.getMapper(Owner.class);
-    this.mParty = world.getMapper(Party.class);
-    this.mSphere = world.getMapper(Sphere.class);
+    this.mMonster = world.getMapper(MonsterData.class);
+    this.mStats = world.getMapper(Stats.class);
     this.mMana = world.getMapper(Mana.class);
     this.mWallet = world.getMapper(Wallet.class);
+    this.mExperience = world.getMapper(Experience.class);
+    this.mInventory = world.getMapper(Inventory.class);
     this.mDrop = world.getMapper(DroppedItem.class);
     this.mDeathAnim = world.getMapper(DeathAnim.class);
     this.mDead = world.getMapper(Dead.class);
@@ -87,11 +86,8 @@ public final class EntityQueries {
     if (mPlayer.has(artemisId)) {
       return EntityKind.PLAYER;
     }
-    if (mPal.has(artemisId)) {
-      return EntityKind.PAL;
-    }
-    if (mSphere.has(artemisId)) {
-      return EntityKind.SPHERE;
+    if (mMonster.has(artemisId)) {
+      return EntityKind.MONSTER;
     }
     if (mDrop.has(artemisId)) {
       return EntityKind.DROP;
@@ -104,22 +100,12 @@ public final class EntityQueries {
 
   public int speciesId(int stableId) {
     int artemisId = index.artemisIdOf(stableId);
-    return mPal.has(artemisId) ? mPal.get(artemisId).speciesId : -1;
+    return mMonster.has(artemisId) ? mMonster.get(artemisId).speciesId : -1;
   }
 
   public int level(int stableId) {
     int artemisId = index.artemisIdOf(stableId);
-    return mPal.has(artemisId) ? mPal.get(artemisId).level : -1;
-  }
-
-  public int ownerId(int stableId) {
-    int artemisId = index.artemisIdOf(stableId);
-    return mOwner.has(artemisId) ? mOwner.get(artemisId).ownerStableId : -1;
-  }
-
-  public float renderZ(int stableId) {
-    int artemisId = index.artemisIdOf(stableId);
-    return mSphere.has(artemisId) ? mSphere.get(artemisId).z : 0f;
+    return mStats.has(artemisId) ? mStats.get(artemisId).level : -1;
   }
 
   public int mana(int stableId) {
@@ -137,6 +123,40 @@ public final class EntityQueries {
     return mWallet.has(artemisId) ? mWallet.get(artemisId).coins : -1;
   }
 
+  public int experience(int stableId) {
+    int artemisId = index.artemisIdOf(stableId);
+    return mExperience.has(artemisId) ? mExperience.get(artemisId).exp : -1;
+  }
+
+  public int expToNextLevel(int stableId) {
+    int artemisId = index.artemisIdOf(stableId);
+    if (!mExperience.has(artemisId) || !mStats.has(artemisId)) {
+      return -1;
+    }
+    return Progression.expToNext(mStats.get(artemisId).level);
+  }
+
+  public int inventoryItemId(int stableId, int slot) {
+    int artemisId = index.artemisIdOf(stableId);
+    if (!mInventory.has(artemisId) || slot < 0 || slot >= Inventory.SLOTS) {
+      return 0;
+    }
+    return mInventory.get(artemisId).itemIds[slot];
+  }
+
+  public int inventoryCount(int stableId, int slot) {
+    int artemisId = index.artemisIdOf(stableId);
+    if (!mInventory.has(artemisId) || slot < 0 || slot >= Inventory.SLOTS) {
+      return 0;
+    }
+    return mInventory.get(artemisId).counts[slot];
+  }
+
+  public int dropItemId(int stableId) {
+    int artemisId = index.artemisIdOf(stableId);
+    return mDrop.has(artemisId) ? mDrop.get(artemisId).itemId : -1;
+  }
+
   public int dropAmount(int stableId) {
     int artemisId = index.artemisIdOf(stableId);
     return mDrop.has(artemisId) ? mDrop.get(artemisId).amount : -1;
@@ -149,34 +169,5 @@ public final class EntityQueries {
     }
     DeathAnim anim = mDeathAnim.get(artemisId);
     return anim.totalTicks <= 0 ? 1f : Math.min(1f, (float) anim.elapsedTicks / anim.totalTicks);
-  }
-
-  /** 플레이어(첫 PlayerTag 엔티티)의 파티에서 slot 번째 팰. 비었으면 -1. */
-  public int partyEntityId(int slot) {
-    if (slot < 0 || slot >= SimView.PARTY_SLOTS) {
-      return -1;
-    }
-    int playerStableId = -1;
-    int n = index.size();
-    for (int i = 0; i < n; i++) {
-      if (mPlayer.has(index.artemisIdAt(i))) {
-        playerStableId = index.stableIdAt(i);
-        break;
-      }
-    }
-    if (playerStableId < 0) {
-      return -1;
-    }
-    for (int i = 0; i < n; i++) {
-      int artemisId = index.artemisIdAt(i);
-      if (!mParty.has(artemisId) || !mOwner.has(artemisId)) {
-        continue;
-      }
-      if (mOwner.get(artemisId).ownerStableId == playerStableId
-          && mParty.get(artemisId).slot == slot) {
-        return index.stableIdAt(i);
-      }
-    }
-    return -1;
   }
 }

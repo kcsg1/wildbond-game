@@ -13,11 +13,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 헤드리스 sim 부하 테스트 — docs/architecture.md §9.4 예산과 docs/m0-prompts.md 단계7 수용 기준을 검증한다.
+ * 헤드리스 sim 부하 테스트 — docs/architecture.md §9.4 예산을 검증한다.
  *
  * <ul>
  *   <li>혼잡: 엔티티 500개 1000틱, 평균 틱 ≤ 8ms (§9.4 합계 예산)
- *   <li>팰: 팰 24마리 1000틱, 평균 틱 ≤ 3ms (단계7 수용 기준 "팰 24마리 상황에서 sim 틱 ≤ 3ms")
+ *   <li>몬스터: 늑대 24마리가 1000틱 내내 추격하는 상태, 평균 틱 ≤ 3ms
  * </ul>
  *
  * <p>Gradle 태스크 {@code :sim:bench} 로 실행되고, 하네스(harness.ps1) 전체 모드가 자동으로 포함한다. 하나라도 예산을 넘으면 종료 코드 1
@@ -31,11 +31,12 @@ public final class SimBench {
   private static final int CROWD_ENTITY_COUNT = 500;
   private static final double CROWD_BUDGET_MS = 8.0;
 
-  private static final int PAL_COUNT = 24;
-  private static final double PAL_BUDGET_MS = 3.0;
+  private static final int MONSTER_COUNT = 24;
+  private static final int WOLF_SPECIES_ID = 2; // data/tables/Monster.csv monster.wolf (aggressive)
+  private static final double MONSTER_BUDGET_MS = 3.0;
 
-  /** 30×30 타일이면 어느 구석도 중앙의 플레이어에서 24타일 이상 떨어지지 않아 야생 스폰이 끼어들지 않는다 — 정확히 24마리를 잰다. */
-  private static final int PAL_MAP_TILES = 30;
+  /** 30×30 타일이면 어느 구석도 중앙의 플레이어에서 24타일 이상 떨어지지 않아 자동 스폰이 끼어들지 않는다 — 정확히 24마리를 잰다. */
+  private static final int MONSTER_MAP_TILES = 30;
 
   private SimBench() {}
 
@@ -48,7 +49,7 @@ public final class SimBench {
 
     Result crowd = runCrowd(gameData);
     System.out.printf(
-        "[sim:bench] crowd  entities=%d ticks=%d avg=%.3fms max=%.3fms alive=%d (예산 %.1fms)%n",
+        "[sim:bench] crowd    entities=%d ticks=%d avg=%.3fms max=%.3fms alive=%d (예산 %.1fms)%n",
         CROWD_ENTITY_COUNT,
         TICK_COUNT,
         crowd.avgMs(),
@@ -56,10 +57,15 @@ public final class SimBench {
         crowd.survivors(),
         CROWD_BUDGET_MS);
 
-    Result pals = runPals(gameData);
+    Result monsters = runMonsters(gameData);
     System.out.printf(
-        "[sim:bench] pals   pals=%d ticks=%d avg=%.3fms max=%.3fms alive=%d (예산 %.1fms)%n",
-        PAL_COUNT, TICK_COUNT, pals.avgMs(), pals.maxMs(), pals.survivors(), PAL_BUDGET_MS);
+        "[sim:bench] monsters n=%d ticks=%d avg=%.3fms max=%.3fms alive=%d (예산 %.1fms)%n",
+        MONSTER_COUNT,
+        TICK_COUNT,
+        monsters.avgMs(),
+        monsters.maxMs(),
+        monsters.survivors(),
+        MONSTER_BUDGET_MS);
 
     boolean failed = false;
     if (crowd.avgMs() > CROWD_BUDGET_MS) {
@@ -68,10 +74,10 @@ public final class SimBench {
           crowd.avgMs(), CROWD_BUDGET_MS);
       failed = true;
     }
-    if (pals.avgMs() > PAL_BUDGET_MS) {
+    if (monsters.avgMs() > MONSTER_BUDGET_MS) {
       System.err.printf(
-          "[sim:bench] 실패 — pals 평균 틱 %.3fms > 예산 %.1fms (docs/m0-prompts.md 단계7 수용 기준)%n",
-          pals.avgMs(), PAL_BUDGET_MS);
+          "[sim:bench] 실패 — monsters 평균 틱 %.3fms > 예산 %.1fms%n",
+          monsters.avgMs(), MONSTER_BUDGET_MS);
       failed = true;
     }
     if (failed) {
@@ -95,16 +101,13 @@ public final class SimBench {
   }
 
   /**
-   * 팰 24마리 시나리오 — 감지(레이캐스트)·행동 트리·JPS 경로 탐색·추격이 모두 도는 상태를 잰다 (§9.4 의 팰 AI 2ms + 경로 탐색 1.5ms 가 지배적인
-   * 항목이다).
+   * 늑대 24마리 시나리오 — 감지(레이캐스트)·행동 트리·추격이 모두 도는 상태를 잰다. 플레이어 둘레에 2타일 두께의 해자를 파서 물은 이동만 막고 시야는 막지
+   * 않으므로(§9.1) "보고 쫓지만 닿지 못하는" 상태가 1000틱 내내 유지된다 — 플레이어가 죽어 유휴 측정이 되는 것을 막는다.
    */
-  private static Result runPals(GameData gameData) {
-    int size = PAL_MAP_TILES;
+  private static Result runMonsters(GameData gameData) {
+    int size = MONSTER_MAP_TILES;
     int centerTile = size / 2;
     byte[] grid = new byte[size * size];
-
-    // 플레이어 둘레에 2타일 두께의 해자를 판다. 물은 이동만 막고 시야는 막지 않으므로(§9.1) 팰 24마리가 1000틱 내내
-    // "보고 쫓지만 닿지 못하는" 상태로 남는다 — 플레이어가 중간에 죽어 측정이 유휴 상태로 바뀌는 것을 막는다.
     for (int ty = 0; ty < size; ty++) {
       for (int tx = 0; tx < size; tx++) {
         int chebyshev = Math.max(Math.abs(tx - centerTile), Math.abs(ty - centerTile));
@@ -117,16 +120,14 @@ public final class SimBench {
     Sim sim = new Sim(gameData, map, SEED);
 
     float center = tileCenter(centerTile);
-    List<Command> spawnCommands = new ArrayList<>(PAL_COUNT + 1);
+    List<Command> spawnCommands = new ArrayList<>(MONSTER_COUNT + 1);
     spawnCommands.add(new Command.SpawnPlayer(center, center));
-    for (int i = 0; i < PAL_COUNT; i++) {
-      // 해자 바깥, 시야(12타일) 안쪽 두 겹의 고리에 흩어 놓는다.
-      double angle = 2 * StrictMath.PI * i / PAL_COUNT;
+    for (int i = 0; i < MONSTER_COUNT; i++) {
+      double angle = 2 * StrictMath.PI * i / MONSTER_COUNT;
       float radiusPx = (i % 2 == 0 ? 9f : 11f) * 32f;
       float x = center + (float) StrictMath.cos(angle) * radiusPx;
       float y = center + (float) StrictMath.sin(angle) * radiusPx;
-      int speciesId = 1 + (i % 3);
-      spawnCommands.add(new Command.SpawnPal(x, y, speciesId, 1 + (i % 5)));
+      spawnCommands.add(new Command.SpawnMonster(x, y, WOLF_SPECIES_ID));
     }
     sim.step(0, spawnCommands);
     return measure(sim, new int[] {sim.view().stableIdAt(0)});
